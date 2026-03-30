@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>脆（Threads）命理雷達 · 大寶老師</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d0d0f;
+      --surface: #18181c;
+      --surface2: #22222a;
+      --border: #2e2e3a;
+      --accent: #a78bfa;
+      --accent2: #f472b6;
+      --accent3: #34d399;
+      --text: #e8e8f0;
+      --text-muted: #8888aa;
+      --gold: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'PingFang TC', 'Noto Sans TC', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a1033 0%, #18181c 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .logo span { color: var(--text); }
+    .last-update {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .refresh-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .refresh-btn:hover { background: var(--accent); color: #fff; }
+
+    /* ── Layout ── */
+    main { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .stat-card.purple::before { background: var(--accent); }
+    .stat-card.pink::before { background: var(--accent2); }
+    .stat-card.green::before { background: var(--accent3); }
+    .stat-card.gold::before { background: var(--gold); }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 2rem; font-weight: 800; }
+    .stat-value.purple { color: var(--accent); }
+    .stat-value.pink { color: var(--accent2); }
+    .stat-value.green { color: var(--accent3); }
+    .stat-value.gold { color: var(--gold); }
+    .stat-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── Grid ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot-purple { background: var(--accent); }
+    .dot-pink { background: var(--accent2); }
+    .dot-green { background: var(--accent3); }
+    .dot-gold { background: var(--gold); }
+
+    /* ── Post Ranking ── */
+    .post-list { display: flex; flex-direction: column; gap: 10px; }
+    .post-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .post-item:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .post-rank {
+      position: absolute;
+      top: 12px; right: 14px;
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: var(--border);
+    }
+    .post-rank.top1 { color: var(--gold); }
+    .post-rank.top2 { color: #9ca3af; }
+    .post-rank.top3 { color: #b45309; }
+    .post-author {
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .post-content {
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 10px;
+      padding-right: 36px;
+    }
+    .post-meta { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+    .meta-pill {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .keyword-badge {
+      background: rgba(167,139,250,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(167,139,250,0.25);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .engagement-score {
+      margin-left: auto;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent2);
+    }
+
+    /* ── Keyword Badges ── */
+    .keyword-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kw-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .kw-card:hover { border-color: var(--accent); }
+    .kw-name { font-weight: 600; }
+    .kw-count {
+      background: rgba(167,139,250,0.15);
+      color: var(--accent);
+      padding: 1px 7px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    /* ── Account tracking ── */
+    .account-list { display: flex; flex-direction: column; gap: 8px; }
+    .account-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .account-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .account-info { flex: 1; min-width: 0; }
+    .account-name { font-size: 0.85rem; font-weight: 700; }
+    .account-handle { font-size: 0.72rem; color: var(--text-muted); }
+    .account-stats { text-align: right; }
+    .account-avg { font-size: 0.9rem; font-weight: 700; color: var(--accent2); }
+    .account-posts { font-size: 0.7rem; color: var(--text-muted); }
+    .new-badge {
+      background: rgba(52,211,153,0.15);
+      color: var(--accent3);
+      border: 1px solid rgba(52,211,153,0.3);
+      padding: 2px 7px;
+      border-radius: 8px;
+      font-size: 0.65rem;
+      font-weight: 700;
+    }
+
+    /* ── Chart ── */
+    .chart-wrap { position: relative; height: 200px; }
+
+    /* ── Empty State ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .empty-icon { font-size: 2rem; margin-bottom: 8px; }
+
+    /* ── Keyword Filter ── */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .filter-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 12px;
+      border-radius: 14px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      background: rgba(167,139,250,0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔮 <span>脆命理雷達</span></div>
+  <div class="last-update" id="last-update">最後更新：載入中...</div>
+  <button class="refresh-btn" onclick="loadData()">↻ 重新整理</button>
+</header>
+
+<main>
+  <!-- Stats Bar -->
+  <div class="stats-bar">
+    <div class="stat-card purple">
+      <div class="stat-label">今日抓取貼文</div>
+      <div class="stat-value purple" id="stat-posts">—</div>
+      <div class="stat-sub" id="stat-posts-sub">本次爬取</div>
+    </div>
+    <div class="stat-card pink">
+      <div class="stat-label">最高互動貼文</div>
+      <div class="stat-value pink" id="stat-top-engagement">—</div>
+      <div class="stat-sub">讚 + 留言 + 轉發</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">追蹤帳號數</div>
+      <div class="stat-value green" id="stat-accounts">—</div>
+      <div class="stat-sub">自動偵測竄起帳號</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="stat-label">最熱關鍵字</div>
+      <div class="stat-value gold" id="stat-hot-kw" style="font-size:1.3rem;">—</div>
+      <div class="stat-sub" id="stat-hot-kw-count">今日貼文數</div>
+    </div>
+  </div>
+
+  <!-- Row 1: Hot Posts + Keyword Trends -->
+  <div class="grid-2">
+    <!-- Hot Posts -->
+    <div class="card" style="grid-column: span 1;">
+      <div class="card-title"><span class="dot dot-gold"></span>熱門貼文排行</div>
+      <div class="filter-bar" id="kw-filters">
+        <button class="filter-btn active" onclick="filterPosts('全部', this)">全部</button>
+      </div>
+      <div class="post-list" id="post-list">
+        <div class="empty-state"><div class="empty-icon">🔄</div>載入中...</div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      <!-- Keyword Trend Chart -->
+      <div class="card">
+        <div class="card-title"><span class="dot dot-purple"></span>關鍵字熱度分佈</div>
+        <div class="chart-wrap">
+          <canvas id="kwChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Account Tracking -->
+      <div class="card">
+        <div class="card-title"><span class="dot dot-green"></span>偵測到的帳號</div>
+        <div class="account-list" id="account-list">
+          <div class="empty-state"><div class="empty-icon">🔍</div>載入中...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Content Analysis -->
+  <div class="card">
+    <div class="card-title"><span class="dot dot-pink"></span>爆文鉤子分析 <span style="color:var(--text-muted);font-weight:400;font-size:0.75rem;margin-left:auto;">根據高互動貼文歸納</span></div>
+    <div id="hook-analysis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+      <div class="empty-state" style="grid-column:span 3;"><div class="empty-icon">📊</div>載入中...</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let allPosts = [];
+  let kwChart = null;
+
+  async function loadData() {
+    try {
+      // 嘗試從同目錄的 data.json 載入
+      const res = await fetch('./data.json?t=' + Date.now());
+      const data = await res.json();
+      renderDashboard(data);
+    } catch (e) {
+      document.getElementById('last-update').textContent = '⚠️ 無法載入資料，請確認 data.json 存在';
+    }
+  }
+
+  function renderDashboard(data) {
+    const sessions = data.scrape_sessions || [];
+    const latest = sessions[sessions.length - 1];
+    if (!latest) return;
+
+    allPosts = latest.posts || [];
+    const accounts = data.tracked_accounts || [];
+
+    // 更新時間
+    const dt = new Date(latest.timestamp);
+    document.getElementById('last-update').textContent =
+      '最後更新：' + dt.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    // Stats
+    document.getElementById('stat-posts').textContent = allPosts.length;
+
+    const topEngagement = allPosts.reduce((max, p) => {
+      const score = (p.likes || 0) + (p.comments || 0) + (p.reposts || 0);
+      return score > max ? score : max;
+    }, 0);
+    document.getElementById('stat-top-engagement').textContent = topEngagement.toLocaleString();
+    document.getElementById('stat-accounts').textContent = accounts.length;
+
+    // Hot keyword
+    const kwCount = {};
+    allPosts.forEach(p => { kwCount[p.keyword_matched] = (kwCount[p.keyword_matched] || 0) + 1; });
+    const hotKw = Object.entries(kwCount).sort((a, b) => b[1] - a[1])[0];
+    if (hotKw) {
+      document.getElementById('stat-hot-kw').textContent = hotKw[0];
+      document.getElementById('stat-hot-kw-count').textContent = hotKw[1] + ' 篇貼文';
+    }
+
+    // Keyword filter buttons
+    const filterBar = document.getElementById('kw-filters');
+    filterBar.innerHTML = '<button class="filter-btn active" onclick="filterPosts(\'全部\', this)">全部</button>';
+    Object.keys(kwCount).forEach(kw => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn';
+      btn.textContent = kw + ' ' + kwCount[kw];
+      btn.onclick = function() { filterPosts(kw, this); };
+      filterBar.appendChild(btn);
+    });
+
+    // Render posts
+    renderPosts(allPosts);
+
+    // Keyword Chart
+    renderKwChart(kwCount);
+
+    // Accounts
+    renderAccounts(accounts);
+
+    // Hook analysis
+    renderHookAnalysis(allPosts);
+  }
+
+  function filterPosts(kw, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filtered = kw === '全部' ? allPosts : allPosts.filter(p => p.keyword_matched === kw);
+    renderPosts(filtered);
+  }
+
+  function renderPosts(posts) {
+    const container = document.getElementById('post-list');
+    if (!posts.length) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div>暫無資料</div>';
+      return;
+    }
+    const sorted = [...posts].sort((a, b) => {
+      return ((b.likes || 0) + (b.comments || 0) + (b.reposts || 0)) -
+             ((a.likes || 0) + (a.comments || 0) + (a.reposts || 0));
+    });
+    container.innerHTML = sorted.slice(0, 10).map((p, i) => {
+      const score = (p.likes || 0) + (p.comments || 0) + (p.reposts || 0);
+      const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+      const rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+      return `
+        <div class="post-item" onclick="window.open('${p.url}','_blank')">
+          <div class="post-rank ${rankClass}">${rankEmoji}</div>
+          <div class="post-author">${p.author_display || p.author} <span style="color:var(--text-muted);font-weight:400">${p.author}</span></div>
+          <div class="post-content">${p.content}</div>
+          <div class="post-meta">
+            <span class="keyword-badge">${p.keyword_matched}</span>
+            <span class="meta-pill">❤️ ${(p.likes || 0).toLocaleString()}</span>
+            <span class="meta-pill">💬 ${(p.comments || 0).toLocaleString()}</span>
+            <span class="meta-pill">🔁 ${(p.reposts || 0).toLocaleString()}</span>
+            <span class="engagement-score">互動 ${score.toLocaleString()}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderKwChart(kwCount) {
+    const ctx = document.getElementById('kwChart').getContext('2d');
+    const labels = Object.keys(kwCount);
+    const values = Object.values(kwCount);
+    const colors = ['#a78bfa','#f472b6','#34d399','#fbbf24','#60a5fa','#fb923c','#a3e635','#e879f9'];
+
+    if (kwChart) kwChart.destroy();
+    kwChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors.slice(0, labels.length),
+          borderWidth: 0,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: '#8888aa',
+              font: { size: 11 },
+              boxWidth: 10,
+              padding: 10
+            }
+          }
+        },
+        cutout: '65%'
+      }
+    });
+  }
+
+  function renderAccounts(accounts) {
+    const container = document.getElementById('account-list');
+    if (!accounts.length) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div>尚未追蹤到帳號</div>';
+      return;
+    }
+    container.innerHTML = accounts.map(a => {
+      const initials = (a.display_name || a.handle).slice(0, 2);
+      const isNew = (new Date() - new Date(a.first_seen)) < 7 * 24 * 3600 * 1000;
+      return `
+        <div class="account-item">
+          <div class="account-avatar">${initials}</div>
+          <div class="account-info">
+            <div class="account-name">${a.display_name} ${isNew ? '<span class="new-badge">NEW</span>' : ''}</div>
+            <div class="account-handle">${a.handle} · ${a.category}</div>
+          </div>
+          <div class="account-stats">
+            <div class="account-avg">♡ ${(a.avg_likes || 0).toLocaleString()}</div>
+            <div class="account-posts">平均按讚</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderHookAnalysis(posts) {
+    const container = document.getElementById('hook-analysis');
+    if (!posts.length) {
+      container.innerHTML = '<div class="empty-state" style="grid-column:span 3"><div class="empty-icon">📊</div>等待更多資料...</div>';
+      return;
+    }
+
+    // 分析開頭類型
+    const hooks = {
+      '問句鉤子': { count: 0, examples: [], color: 'var(--accent)' },
+      '反常識破解': { count: 0, examples: [], color: 'var(--accent2)' },
+      '說故事': { count: 0, examples: [], color: 'var(--accent3)' },
+    };
+
+    posts.forEach(p => {
+      const c = p.content;
+      if (c.includes('？') || c.includes('嗎') || c.includes('你是')) {
+        hooks['問句鉤子'].count++;
+        if (hooks['問句鉤子'].examples.length < 2) hooks['問句鉤子'].examples.push(c.slice(0, 30) + '...');
+      } else if (c.includes('不是') || c.includes('不是') || c.includes('沒有') || c.includes('反而')) {
+        hooks['反常識破解'].count++;
+        if (hooks['反常識破解'].examples.length < 2) hooks['反常識破解'].examples.push(c.slice(0, 30) + '...');
+      } else {
+        hooks['說故事'].count++;
+        if (hooks['說故事'].examples.length < 2) hooks['說故事'].examples.push(c.slice(0, 30) + '...');
+      }
+    });
+
+    container.innerHTML = Object.entries(hooks).map(([type, data]) => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">${type}</div>
+        <div style="font-size:1.8rem;font-weight:900;color:${data.color};margin-bottom:10px;">${data.count}</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${data.examples.map(e => `<div style="font-size:0.75rem;color:var(--text-muted);background:var(--surface);padding:6px 10px;border-radius:8px;line-height:1.4;">${e}</div>`).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 啟動
+  loadData();
+  // 每5分鐘自動重新整理
+  setInterval(loadData, 5 * 60 * 1000);
+</script>
+
+</body>
+</html>

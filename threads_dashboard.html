@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threads 命理熱文監測站 | 大寶老師</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --card: #1a1a24;
+    --card2: #22222f;
+    --accent: #c9a96e;
+    --accent2: #9b59b6;
+    --text: #e8e4dc;
+    --muted: #888;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --border: #2e2e40;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Noto Sans TC', sans-serif; min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, #1a1a24 0%, #0f0f13 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header h1 { font-size: 20px; color: var(--accent); letter-spacing: 1px; }
+  .header .subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .last-update { font-size: 12px; color: var(--muted); text-align: right; }
+  .last-update strong { color: var(--accent); }
+
+  .container { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+  /* 頂部數字卡 */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+  .stat-card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .stat-card .value { font-size: 32px; font-weight: 700; color: var(--accent); margin: 8px 0 4px; }
+  .stat-card .change { font-size: 12px; color: var(--green); }
+
+  /* 熱門話題區 */
+  .section-title {
+    font-size: 14px; color: var(--accent); text-transform: uppercase;
+    letter-spacing: 2px; margin-bottom: 16px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .trending-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+
+  /* 趨勢標籤 */
+  .trend-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .trend-tag {
+    display: inline-block;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    margin: 4px;
+    font-size: 13px;
+    cursor: default;
+    transition: all 0.2s;
+  }
+  .trend-tag:hover { border-color: var(--accent); color: var(--accent); }
+  .trend-tag.hot { border-color: var(--red); color: var(--red); }
+  .trend-tag.warm { border-color: var(--accent); color: var(--accent); }
+  .trend-tag.new { border-color: var(--green); color: var(--green); }
+
+  /* 熱文列表 */
+  .posts-section { margin-bottom: 28px; }
+  .post-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .post-card:hover { border-color: var(--accent); }
+  .post-card .rank {
+    position: absolute; top: 20px; right: 20px;
+    font-size: 24px; font-weight: 900; color: var(--border);
+  }
+  .post-meta {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+  }
+  .post-meta .username {
+    color: var(--accent); font-weight: 600; font-size: 14px;
+  }
+  .post-meta .keyword-tag {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--muted);
+  }
+  .post-meta .time { font-size: 12px; color: var(--muted); }
+  .post-text { font-size: 14px; line-height: 1.7; color: #ccc; white-space: pre-wrap; }
+  .post-text .highlight { color: var(--accent); font-weight: 600; }
+
+  /* 洞察欄 */
+  .insight-card {
+    background: linear-gradient(135deg, #1e1830 0%, #1a1a24 100%);
+    border: 1px solid #3d2b6b;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 12px;
+  }
+  .insight-card h3 { color: #b388ff; font-size: 15px; margin-bottom: 12px; }
+  .insight-card p { font-size: 13px; line-height: 1.8; color: #ccc; }
+  .insight-card .action {
+    margin-top: 12px; padding: 10px 14px;
+    background: rgba(155, 89, 182, 0.15);
+    border: 1px solid rgba(155, 89, 182, 0.3);
+    border-radius: 8px;
+    font-size: 13px; color: #b388ff;
+  }
+  .insight-card .action strong { color: #e040fb; }
+
+  /* 關鍵字熱度 */
+  .keyword-bar { margin-bottom: 10px; }
+  .keyword-bar .label { font-size: 13px; color: var(--text); margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .keyword-bar .label span { color: var(--muted); font-size: 12px; }
+  .keyword-bar .bar-bg { background: var(--card2); border-radius: 4px; height: 8px; overflow: hidden; }
+  .keyword-bar .bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+
+  /* 兩欄 layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+
+  .footer { text-align: center; padding: 20px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 20px; }
+
+  @media (max-width: 768px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .trending-grid, .two-col { grid-template-columns: 1fr; }
+    .container { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Threads 命理熱文監測站</h1>
+    <div class="subtitle">大寶老師專用 ｜ @read_urface ｜ 寶曜文化</div>
+  </div>
+  <div class="last-update">
+    最後更新<br>
+    <strong id="last-update-time">2026/03/30 今日</strong><br>
+    <span style="color:#555; font-size:11px;">每 4 小時自動刷新</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 數字卡 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="label">本次抓取貼文數</div>
+      <div class="value">22</div>
+      <div class="change">↑ 4 個關鍵字搜尋</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">本日最熱關鍵字</div>
+      <div class="value" style="font-size:22px; padding-top:6px;">天機試煉場</div>
+      <div class="change">↑ 出現 4 次以上</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">竄起中的趨勢</div>
+      <div class="value" style="font-size:22px; padding-top:6px;">AI 算命</div>
+      <div class="change">↑ 跨關鍵字反覆出現</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">監測關鍵字數</div>
+      <div class="value">4</div>
+      <div class="change">命理 / 紫微 / 算命 / 感情運</div>
+    </div>
+  </div>
+
+  <!-- 趨勢話題 + 關鍵字熱度 -->
+  <div class="trending-grid">
+    <div class="trend-card">
+      <div class="section-title">今日熱門話題標籤</div>
+      <span class="trend-tag hot">天機試煉場（韓綜）</span>
+      <span class="trend-tag hot">AI算命</span>
+      <span class="trend-tag warm">紫微夫妻宮</span>
+      <span class="trend-tag warm">感情運2026</span>
+      <span class="trend-tag warm">算命師推薦</span>
+      <span class="trend-tag new">AI排盤prompt</span>
+      <span class="trend-tag new">情劫命運</span>
+      <span class="trend-tag">破軍流月</span>
+      <span class="trend-tag">感情卡關</span>
+      <span class="trend-tag">命格外貌</span>
+      <span class="trend-tag">八字課程</span>
+      <span class="trend-tag">自學解盤</span>
+    </div>
+    <div class="trend-card">
+      <div class="section-title">關鍵字搜尋熱度</div>
+      <div class="keyword-bar">
+        <div class="label">算命 <span>6 篇 / 高互動</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:95%"></div></div>
+      </div>
+      <div class="keyword-bar">
+        <div class="label">紫微 <span>6 篇 / 今日新鮮</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:88%"></div></div>
+      </div>
+      <div class="keyword-bar">
+        <div class="label">命理 <span>6 篇 / 穩定流量</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:78%"></div></div>
+      </div>
+      <div class="keyword-bar">
+        <div class="label">感情運 <span>4 篇 / 情緒共鳴型</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:65%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 今日精選熱文 -->
+  <div class="posts-section">
+    <div class="section-title">今日精選熱文（真實抓取 2026/03/30）</div>
+
+    <div class="post-card">
+      <div class="rank">#1</div>
+      <div class="post-meta">
+        <span class="username">@bape813</span>
+        <span class="keyword-tag">紫微</span>
+        <span class="time">2026-03-30 今日</span>
+      </div>
+      <div class="post-text">紫微斗數中的：夫妻宮
+
+感謝大家都子女宮的熱烈反應，現在來聊聊大家一定很感興趣的夫妻宮。
+
+紫微夫妻宮跟古典占星中的第七宮有一點像——本命夫妻宮，其實並不是在說你未來對象長相，更不能直接與你現實中的感情對象畫上等號。
+
+它是你<span class="highlight">與生俱來對待感情的「價值觀與態度」</span>。你個性會用什麼樣的方式去愛人，同時也希望對方如何來愛你。
+
+【14主星落夫妻宮：請大家自己對照】
+紫微：偏愛氣質高。雙方都偏強勢，相處要懂...</div>
+    </div>
+
+    <div class="post-card">
+      <div class="rank">#2</div>
+      <div class="post-meta">
+        <span class="username">@ricebowlseeker</span>
+        <span class="keyword-tag">紫微</span>
+        <span class="time">2026-03-30 今日</span>
+      </div>
+      <div class="post-text">紫微斗數論命——第一次當破軍，有點緊張
+
+其實是學紫微後的第一次，意識自己走到流月破軍。
+
+因為壓力性而走向極端的破軍，冒出「世界毀滅吧」的想法，但下一秒又「世界很美好」——精分日常。
+
+確實邁出一步重大的改變，如何看待這個轉變...</div>
+    </div>
+
+    <div class="post-card">
+      <div class="rank">#3</div>
+      <div class="post-meta">
+        <span class="username">@iletyou888</span>
+        <span class="keyword-tag">感情運</span>
+        <span class="time">2026-03-29</span>
+      </div>
+      <div class="post-text">脆上不少自學算命的朋友，常見是學了很多但看到盤之後，還是不知道如何開始解。
+
+有一個小方法可以幫助大家開始解盤：「<span class="highlight">模擬客人來問事</span>」
+
+例如：老師請問我明年事業如何？→ 依此開始解題：「明年」「事業」
+老師請問我感情運如何？→ 「感情」「一生」「十年」「流年」
+
+有效的定義問題，可以更有方向。其實創業跟人生也是如此。</div>
+    </div>
+
+    <div class="post-card">
+      <div class="rank">#4</div>
+      <div class="post-meta">
+        <span class="username">@momolinkam</span>
+        <span class="keyword-tag">算命 / 命理</span>
+        <span class="time">2026-03-28</span>
+      </div>
+      <div class="post-text">AI算命prompt（加強版）一共四個步驟
+
+第一步：設定 AI 角色為精通八字、紫微斗數的命理大師。
+
+先根據命盤描述外貌和性格特征（五官面容、身材、氣質、有無胎記）→ <span class="highlight">讓對方確認「對不對」，製造信任感</span>，再進入正式解盤...
+
+⚠️ 同業注意：這類「AI算命prompt」在台灣、大陸都在快速擴散，可能影響潛在客群對「人工算命」的期待值。</div>
+    </div>
+
+    <div class="post-card">
+      <div class="rank">#5</div>
+      <div class="post-meta">
+        <span class="username">@zencat.fate</span>
+        <span class="keyword-tag">紫微 / 算命</span>
+        <span class="time">2026-02-22</span>
+      </div>
+      <div class="post-text">用AI算命準不準？要怎麼玩才厲害？
+
+我是懶貓，有400多位客戶的紫微算命師。今天來教大家怎麼AI算命！
+
+一個很重要的觀念：<span class="highlight">「AI不會排盤」「AI不會排盤」！！</span>
+
+AI雖然很厲害，但並沒有內建排盤算法，AI排出來的紫微盤基本上都是錯誤的。我們得要自己先排盤並告訴AI，才能得到正確的資訊。
+
+另：Gemini會讀取你過去所有聊天記錄，是透過這些推測你的性格，講出你想聽到的話——這其實挺可怕的。</div>
+    </div>
+
+    <div class="post-card">
+      <div class="rank">#6</div>
+      <div class="post-meta">
+        <span class="username">@nivara_room / @wonwoo0709 等多帳號</span>
+        <span class="keyword-tag">算命</span>
+        <span class="time">2026-03 近期</span>
+      </div>
+      <div class="post-text">「最近看韓綜天機試煉場覺得很神！！突然好想算命，求推薦！可以線上更好謝謝」
+
+「最近看了天機試煉場，脆上一堆人說節目中的老師們都被預約到不知道幾年後，那大家有推薦台北哪...」
+
+<span class="highlight">→ 天機試煉場正在為台灣命理市場帶入大量新受眾，他們有需求、有預算、不知道找誰</span></div>
+    </div>
+
+  </div>
+
+  <!-- 洞察與策略 -->
+  <div class="two-col">
+    <div>
+      <div class="section-title">給大寶老師的策略洞察</div>
+
+      <div class="insight-card">
+        <h3>洞察 01 ｜天機試煉場紅利窗口仍在</h3>
+        <p>多篇帖文顯示，韓綜《天機試煉場》讓大量台灣觀眾「第一次想算命」，且他們在脆上公開詢問推薦。這批受眾：有主動性、有消費意願、但還沒有信任的老師。</p>
+        <div class="action"><strong>可發的文：</strong>「看完天機試煉場你有什麼感覺？」開頭切入，給第一次接觸命理的人一個認識大寶老師的理由。</div>
+      </div>
+
+      <div class="insight-card">
+        <h3>洞察 02 ｜AI算命話題：正是你的切入點</h3>
+        <p>「AI算命準不準」是高討論度話題，同業帳號已在教AI使用技巧。但沒有人能提供的是——真人命理師的精準定盤、對話感、及生命場域的引導。</p>
+        <div class="action"><strong>可發的文：</strong>用一個「AI排錯盤、我幫客戶重新定盤」的真實案例，做出人機差異的對比，強化你的不可取代性。</div>
+      </div>
+
+      <div class="insight-card">
+        <h3>洞察 03 ｜夫妻宮系列內容有流量</h3>
+        <p>@bape813 今日發「夫妻宮」文已有熱烈互動，且說「感謝子女宮的熱烈反應」，說明宮位教育內容連續發有複利效果。</p>
+        <div class="action"><strong>可發的文：</strong>你的版本：不說宮位名詞，用「你天生談感情的方式」切入，帶出紫微對感情觀的詮釋——搶同題材不同深度。</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">競品帳號追蹤</div>
+
+      <div class="trend-card" style="margin-bottom: 16px;">
+        <div style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">本次新發現帳號</div>
+        <div style="margin-bottom: 10px;">
+          <div style="color: var(--accent); font-weight: 600; font-size: 14px;">@bape813</div>
+          <div style="font-size: 12px; color: var(--muted);">今日發文 ｜ 紫微宮位教育系列 ｜ 有連續發文策略</div>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <div style="color: var(--accent); font-weight: 600; font-size: 14px;">@zencat.fate</div>
+          <div style="font-size: 12px; color: var(--muted);">400+ 客戶紫微師 ｜ 擅長「破解AI算命迷思」角度</div>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <div style="color: var(--accent); font-weight: 600; font-size: 14px;">@iletyou888</div>
+          <div style="font-size: 12px; color: var(--muted);">教學型帳號 ｜ 引導自學者 ｜ 潛在轉介紹來源</div>
+        </div>
+        <div>
+          <div style="color: var(--accent); font-weight: 600; font-size: 14px;">@momolinkam</div>
+          <div style="font-size: 12px; color: var(--muted);">AI算命prompt 傳播者 ｜ 簡體用戶 ｜ 非直接競爭但影響受眾期待</div>
+        </div>
+      </div>
+
+      <div class="trend-card">
+        <div style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">今日受眾提問型態（可直接成為貼文題材）</div>
+        <div style="font-size: 13px; line-height: 2; color: #ccc;">
+          ✦ 「看完天機試煉場，我也想算命，推薦哪裡？」<br>
+          ✦ 「AI算命跟真人算命差在哪？」<br>
+          ✦ 「感情一直不順是命？還是運？」<br>
+          ✦ 「紫微斗數說的夫妻宮是真的嗎？」<br>
+          ✦ 「命理師怎麼學？自學有用嗎？」
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  大寶老師專用監測工具 ｜ Threads 命理熱文追蹤 ｜ 每 4 小時自動更新
+</div>
+
+<script>
+  // 顯示更新時間
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('last-update-time').textContent =
+    `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+</script>
+</body>
+</html>
