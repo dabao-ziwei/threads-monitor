@@ -308,7 +308,7 @@ async function sendMagicLink() {
   const { error } = await sb.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: window.location.origin + window.location.pathname
+      emailRedirectTo: 'https://monitor.dabao.life/index.html'
     }
   });
 
