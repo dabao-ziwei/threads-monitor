@@ -112,7 +112,7 @@ async function analyzePost(postText) {
 // 從 Supabase 撈出尚未分析的貼文
 async function fetchUnanalyzedPosts() {
   const resp = await fetch(
-    `${SUPABASE_URL}/rest/v1/threads_posts?analysis_json=is.null&select=id,post_text,keyword&order=created_at.desc&limit=50`,
+    `${SUPABASE_URL}/rest/v1/threads_posts?analysis_json=is.null&select=id,post_text,keyword&order=scraped_at.desc&limit=50`,
     {
       headers: {
         'apikey': SUPABASE_KEY,
