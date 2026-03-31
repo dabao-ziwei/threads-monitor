@@ -9,15 +9,33 @@
 const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
 const SUPABASE_KEY  = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 
-// ── 驗證保護（純 sessionStorage，不依賴 Supabase JS）─────────
+// ── 驗證保護 ─────────────────────────────────────────────────
+// 優先順序：1) sessionStorage passkey auth  2) Supabase localStorage session
 (function checkAuth() {
+  // 方式1：passkey 驗證（跨頁面，但關閉瀏覽器後清空）
   const auth = sessionStorage.getItem('dabao_auth');
   if (auth) {
     try {
       const a = JSON.parse(auth);
-      if (Date.now() - a.verified_at < 24 * 60 * 60 * 1000) return; // 24小時有效
+      if (Date.now() - a.verified_at < 24 * 60 * 60 * 1000) return;
     } catch(e) {}
   }
+
+  // 方式2：Supabase session（存在 localStorage，關閉瀏覽器後仍保留）
+  const sbKey = 'sb-uwktzlxlduqyjyoolgrs-auth-token';
+  const sbSession = localStorage.getItem(sbKey);
+  if (sbSession) {
+    try {
+      const s = JSON.parse(sbSession);
+      const expiry = s.expires_at || (s.access_token && JSON.parse(atob(s.access_token.split('.')[1])).exp);
+      if (expiry && Date.now() / 1000 < expiry) {
+        // session 有效，同步到 sessionStorage 方便後續使用
+        sessionStorage.setItem('dabao_auth', JSON.stringify({ verified_at: Date.now(), method: 'supabase' }));
+        return;
+      }
+    } catch(e) {}
+  }
+
   window.location.href = 'index.html';
 })();
 

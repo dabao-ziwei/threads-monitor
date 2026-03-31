@@ -267,7 +267,8 @@ async function init() {
   // 檢查是否已有有效 session
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    // 已登入，直接去 dashboard
+    // 已登入，先寫 sessionStorage 再跳轉
+    sessionStorage.setItem('dabao_auth', JSON.stringify({ verified_at: Date.now(), method: 'supabase' }));
     window.location.href = DASHBOARD_URL;
     return;
   }
@@ -348,8 +349,9 @@ async function handleMagicLinkCallback() {
   }
 }
 
-// 進入 Dashboard
+// 進入 Dashboard（先寫 sessionStorage 再跳轉，避免 dashboard 端找不到 auth）
 function goToDashboard() {
+  sessionStorage.setItem('dabao_auth', JSON.stringify({ verified_at: Date.now(), method: 'login' }));
   window.location.href = DASHBOARD_URL;
 }
 
