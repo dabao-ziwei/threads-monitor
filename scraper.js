@@ -1,22 +1,16 @@
 /**
  * Threads 命理熱文爬蟲
  * 大寶老師專用 | @read_urface
- *
- * 執行方式：
- *   THREADS_COOKIES='...' SUPABASE_URL='...' SUPABASE_KEY='...' node scraper.js
  */
 
 const { chromium } = require('playwright');
 
-// ── 設定 ──────────────────────────────────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const THREADS_COOKIES_JSON = process.env.THREADS_COOKIES; // JSON 格式的 cookie 陣列
+const THREADS_COOKIES_JSON = process.env.THREADS_COOKIES;
 
-// 從 Supabase keywords 表讀取（或用預設清單）
 const DEFAULT_KEYWORDS = ['命理', '紫微', '算命', '感情運'];
 
-// ── 清洗函式（移除會炸掉 JSON 的字符） ───────────────────
 function clean(str) {
   if (!str) return '';
   return str
@@ -25,7 +19,6 @@ function clean(str) {
     .trim();
 }
 
-// ── 從 Supabase 取得啟用中的關鍵字 ───────────────────────
 async function fetchKeywords() {
   try {
     const resp = await fetch(`${SUPABASE_URL}/rest/v1/keywords?status=eq.active&select=keyword`, {
@@ -44,10 +37,8 @@ async function fetchKeywords() {
   return DEFAULT_KEYWORDS;
 }
 
-// ── 寫入 Supabase ─────────────────────────────────────────
 async function writeToSupabase(rows) {
   if (rows.length === 0) return { success: true, count: 0 };
-
   const resp = await fetch(`${SUPABASE_URL}/rest/v1/threads_posts`, {
     method: 'POST',
     headers: {
@@ -58,7 +49,6 @@ async function writeToSupabase(rows) {
     },
     body: JSON.stringify(rows)
   });
-
   if (resp.ok) {
     return { success: true, count: rows.length };
   } else {
@@ -67,7 +57,6 @@ async function writeToSupabase(rows) {
   }
 }
 
-// ── 更新關鍵字的最後抓取時間 ─────────────────────────────
 async function updateKeywordStats(keyword, count) {
   await fetch(`${SUPABASE_URL}/rest/v1/keywords?keyword=eq.${encodeURIComponent(keyword)}`, {
     method: 'PATCH',
@@ -83,12 +72,10 @@ async function updateKeywordStats(keyword, count) {
   });
 }
 
-// ── 主程式 ────────────────────────────────────────────────
 async function main() {
   const startTime = new Date();
   const pad = n => String(n).padStart(2, '0');
 
-  // 判斷是測試模式還是排程模式
   const testKeyword = (process.env.KEYWORD_TEST || '').trim();
   const isTestMode = testKeyword.length > 0;
   const batchId = isTestMode
@@ -101,11 +88,9 @@ async function main() {
   if (isTestMode) console.log(`🧪 測試模式：只抓「${testKeyword}」\n`);
   else console.log('');
 
-  // 取得關鍵字清單
   const keywords = isTestMode ? [testKeyword] : await fetchKeywords();
   console.log(`🔑 關鍵字清單: ${keywords.join('、')}\n`);
 
-  // 啟動瀏覽器
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -116,7 +101,6 @@ async function main() {
     viewport: { width: 1280, height: 800 }
   });
 
-  // 載入 Threads cookies
   if (THREADS_COOKIES_JSON) {
     try {
       const cookies = JSON.parse(THREADS_COOKIES_JSON);
@@ -131,25 +115,19 @@ async function main() {
   const summary = {};
   let totalCount = 0;
 
-  // 依序搜尋每個關鍵字
   for (const keyword of keywords) {
     console.log(`\n🔍 搜尋「${keyword}」...`);
-
     try {
       const encodedKw = encodeURIComponent(keyword);
-      await page.goto(`https://www.threads.com/search?q=${encodedKw}&serp_type=default`, {
+      await page.goto(`https://www.threads.com/search?q=${encodedKw}&serp_type=default&lc=zh_TW`, {
         waitUntil: 'networkidle',
         timeout: 30000
       });
 
-      // 等頁面穩定
       await page.waitForTimeout(3000);
-
-      // 滾動讓更多貼文載入
       await page.evaluate(() => window.scrollTo(0, 1500));
       await page.waitForTimeout(2000);
 
-      // 抓取貼文
       const posts = await page.evaluate(() => {
         function clean(str) {
           if (!str) return '';
@@ -158,10 +136,8 @@ async function main() {
             .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
             .trim();
         }
-
         const containers = document.querySelectorAll('[data-pressable-container]');
         const results = [];
-
         containers.forEach((el) => {
           const textNodes = el.querySelectorAll('span[dir="auto"]');
           let postText = '';
@@ -169,16 +145,13 @@ async function main() {
             const t = clean(n.innerText || '');
             if (t.length > 5) postText += t + '\n';
           });
-
           const usernameEl = el.querySelector('a[href*="/@"]');
           const href = usernameEl ? usernameEl.getAttribute('href') || '' : '';
           const username = clean(href).replace(/.*\/@/, '@').split('?')[0];
-
           const timeEl = el.querySelector('time');
           const timeStr = timeEl
             ? clean(timeEl.getAttribute('datetime') || timeEl.innerText || '')
             : '';
-
           if (postText.length > 20) {
             results.push({
               username,
@@ -187,19 +160,11 @@ async function main() {
             });
           }
         });
-
         return results;
       });
 
       console.log(`   找到 ${posts.length} 篇貼文`);
 
-      if (posts.length === 0) {
-        // 重試一次
-        await page.waitForTimeout(3000);
-        console.log('   結果為空，重試中...');
-      }
-
-      // 寫入 Supabase
       if (posts.length > 0) {
         const rows = posts.map(p => ({
           keyword,
@@ -208,7 +173,6 @@ async function main() {
           post_text: p.text || '',
           batch_id: batchId
         }));
-
         const result = await writeToSupabase(rows);
         if (result.success) {
           console.log(`   ✅ 已寫入 Supabase: ${result.count} 筆`);
@@ -216,7 +180,6 @@ async function main() {
         } else {
           console.log(`   ❌ 寫入失敗: ${result.error}`);
         }
-
         await updateKeywordStats(keyword, posts.length);
       }
 
@@ -226,22 +189,17 @@ async function main() {
       console.log(`   ⚠️ 錯誤: ${e.message}`);
       summary[keyword] = 0;
     }
-
-    // 關鍵字之間稍作休息
     await page.waitForTimeout(2000);
   }
 
   await browser.close();
 
-  // 輸出摘要
   const endTime = new Date();
   const duration = Math.round((endTime - startTime) / 1000);
-
   console.log('\n' + '═'.repeat(50));
   console.log('本次抓取完成');
   console.log(`Batch ID：${batchId}`);
   console.log(`耗時：${duration} 秒`);
-  console.log('各關鍵字結果：');
   Object.entries(summary).forEach(([kw, count]) => {
     console.log(`  ${kw}：${count} 篇`);
   });
