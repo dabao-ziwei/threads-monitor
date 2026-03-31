@@ -87,14 +87,22 @@ async function updateKeywordStats(keyword, count) {
 async function main() {
   const startTime = new Date();
   const pad = n => String(n).padStart(2, '0');
-  const batchId = `auto_${startTime.getFullYear()}${pad(startTime.getMonth()+1)}${pad(startTime.getDate())}${pad(startTime.getHours())}${pad(startTime.getMinutes())}`;
+
+  // 判斷是測試模式還是排程模式
+  const testKeyword = (process.env.KEYWORD_TEST || '').trim();
+  const isTestMode = testKeyword.length > 0;
+  const batchId = isTestMode
+    ? `test_${startTime.getFullYear()}${pad(startTime.getMonth()+1)}${pad(startTime.getDate())}${pad(startTime.getHours())}${pad(startTime.getMinutes())}_${testKeyword.substring(0,10)}`
+    : `auto_${startTime.getFullYear()}${pad(startTime.getMonth()+1)}${pad(startTime.getDate())}${pad(startTime.getHours())}${pad(startTime.getMinutes())}`;
 
   console.log(`\n🌙 大寶老師命理監測站 - 開始抓取`);
   console.log(`📦 Batch ID: ${batchId}`);
-  console.log(`⏰ 時間: ${startTime.toLocaleString('zh-TW')}\n`);
+  console.log(`⏰ 時間: ${startTime.toLocaleString('zh-TW')}`);
+  if (isTestMode) console.log(`🧪 測試模式：只抓「${testKeyword}」\n`);
+  else console.log('');
 
   // 取得關鍵字清單
-  const keywords = await fetchKeywords();
+  const keywords = isTestMode ? [testKeyword] : await fetchKeywords();
   console.log(`🔑 關鍵字清單: ${keywords.join('、')}\n`);
 
   // 啟動瀏覽器

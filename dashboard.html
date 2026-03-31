@@ -151,6 +151,51 @@ async function sbFetch(path) {
 
   .footer { text-align: center; padding: 20px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 20px; }
 
+  /* 關鍵字管理 */
+  .kw-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 28px; }
+  .kw-list { margin-bottom: 16px; }
+  .kw-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+    background: var(--card2); border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .kw-item .kw-name { flex: 1; font-size: 14px; font-weight: 600; }
+  .kw-item .kw-stats { font-size: 12px; color: var(--muted); }
+  .kw-item .kw-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  .kw-item .kw-status.active { background: rgba(46,204,113,0.15); color: var(--green); border: 1px solid rgba(46,204,113,0.3); }
+  .kw-item .kw-status.paused { background: rgba(136,136,136,0.15); color: var(--muted); border: 1px solid rgba(136,136,136,0.3); }
+  .kw-btn { padding: 5px 12px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+  .kw-btn.test { background: rgba(201,169,110,0.15); color: var(--accent); border: 1px solid rgba(201,169,110,0.3); }
+  .kw-btn.test:hover { background: rgba(201,169,110,0.25); }
+  .kw-btn.del { background: rgba(231,76,60,0.1); color: var(--red); border: 1px solid rgba(231,76,60,0.3); }
+  .kw-btn.del:hover { background: rgba(231,76,60,0.2); }
+  .kw-btn.pause { background: rgba(136,136,136,0.1); color: var(--muted); border: 1px solid rgba(136,136,136,0.3); }
+  .kw-btn.pause:hover { background: rgba(136,136,136,0.2); }
+  .kw-add-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .kw-input {
+    flex: 1; min-width: 120px;
+    padding: 9px 12px; background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 14px; font-family: inherit; outline: none;
+  }
+  .kw-input:focus { border-color: rgba(201,169,110,0.5); }
+  .kw-input::placeholder { color: var(--muted); }
+  .kw-add-btn { padding: 9px 16px; background: var(--accent); border: none; border-radius: 8px; color: #1a1200; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .kw-add-btn:hover { background: #d4b57a; }
+
+  /* GitHub 設定提示 */
+  .setup-banner {
+    background: rgba(155,89,182,0.1); border: 1px solid rgba(155,89,182,0.3);
+    border-radius: 10px; padding: 14px 18px;
+    font-size: 13px; color: #b388ff;
+    margin-bottom: 20px; display: none;
+  }
+  .setup-banner.show { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .setup-banner a { color: #e040fb; }
+  .setup-link { padding: 6px 14px; background: rgba(155,89,182,0.2); border: 1px solid rgba(155,89,182,0.4); border-radius: 6px; color: #b388ff; font-size: 12px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .setup-link:hover { background: rgba(155,89,182,0.3); }
+
   @media (max-width: 768px) {
     .stats-row { grid-template-columns: repeat(2, 1fr); }
     .two-col { grid-template-columns: 1fr; }
@@ -172,7 +217,10 @@ async function sbFetch(path) {
   </div>
   <div class="header-right">
     <button class="scrape-btn" id="scrapeBtn" onclick="triggerScrape()">
-      ⚡ 立即抓取新資料
+      ⚡ 觸發立即抓取
+    </button>
+    <button class="scrape-btn" id="refreshBtn" onclick="refreshData()" style="background:var(--card2); color:var(--muted); border:1px solid var(--border); margin-left:6px;">
+      🔄 重新整理顯示
     </button>
     <div>
       <div class="last-update">最後抓取<br><strong id="lastUpdateTime">載入中...</strong></div>
@@ -186,6 +234,13 @@ async function sbFetch(path) {
 <div class="container">
 
   <div class="notice" id="noticeBar"></div>
+
+  <!-- GitHub 設定提示 -->
+  <div class="setup-banner" id="setupBanner">
+    ⚙️ 要從網頁直接觸發抓取，需要設定 GitHub 資訊
+    <span class="setup-link" onclick="setupGitHub()">立即設定</span>
+    <span class="setup-link" onclick="document.getElementById('setupBanner').className='setup-banner'">先略過</span>
+  </div>
 
   <!-- 數字卡 -->
   <div class="stats-row">
@@ -205,9 +260,27 @@ async function sbFetch(path) {
       <div class="sub" id="statTopKwSub">最新批次</div>
     </div>
     <div class="stat-card">
-      <div class="label">監測關鍵字</div>
-      <div class="value">4</div>
-      <div class="sub">命理・紫微・算命・感情運</div>
+      <div class="label">監測關鍵字數</div>
+      <div class="value" id="statKwCount">—</div>
+      <div class="sub" id="statKwList">載入中...</div>
+    </div>
+  </div>
+
+  <!-- 關鍵字管理 -->
+  <div class="kw-panel">
+    <div class="section-title">關鍵字管理</div>
+    <div class="kw-list" id="kwList">
+      <div class="skeleton" style="height:44px; margin-bottom:8px;"></div>
+      <div class="skeleton" style="height:44px; margin-bottom:8px;"></div>
+      <div class="skeleton" style="height:44px;"></div>
+    </div>
+    <div class="kw-add-row">
+      <input class="kw-input" id="kwInput" placeholder="輸入新關鍵字，例如：八字" onkeydown="if(event.key==='Enter') addKeyword()">
+      <button class="kw-add-btn" onclick="addKeyword()">＋ 加入排程</button>
+      <button class="kw-add-btn" onclick="testKeyword()" style="background:var(--accent-dim, rgba(201,169,110,0.12)); color:var(--accent); border:1px solid rgba(201,169,110,0.4);">🧪 試抓</button>
+    </div>
+    <div style="margin-top:10px; font-size:12px; color:var(--muted);">
+      「加入排程」= 每次自動抓取都會搜這個詞｜「試抓」= 只抓一次看看有幾篇，結果幾分鐘後重整可見
     </div>
   </div>
 
@@ -262,6 +335,63 @@ async function sbFetch(path) {
 // 資料載入全部使用 sbFetch（直接 REST API，不用 JS client）
 
 let isScraping = false;
+
+// ── GitHub Actions 設定 ─────────────────────────────────────
+function getGitHubConfig() {
+  try { return JSON.parse(localStorage.getItem('github_config') || 'null'); }
+  catch(e) { return null; }
+}
+function setupGitHub() {
+  const repo = prompt('Step 1/2：輸入你的 GitHub Repo\n格式：你的帳號/threads-monitor\n例如：dabao-ziwei/threads-monitor');
+  if (!repo) return;
+  const pat = prompt('Step 2/2：輸入 GitHub Personal Access Token\n\n怎麼取得：\n1. GitHub → 右上角頭像 → Settings\n2. 左側最底 Developer settings → Personal access tokens → Fine-grained tokens\n3. Generate new token → 選你的 repo → 給 Actions: Read and Write 權限\n4. 複製貼上到這裡');
+  if (!pat) return;
+  localStorage.setItem('github_config', JSON.stringify({ repo: repo.trim(), pat: pat.trim() }));
+  document.getElementById('setupBanner').className = 'setup-banner';
+  showNotice('✅ GitHub 設定完成！現在可以從網頁直接觸發抓取了', 'success', 5000);
+}
+function clearGitHubConfig() {
+  if (confirm('確定要清除 GitHub 設定？')) {
+    localStorage.removeItem('github_config');
+    location.reload();
+  }
+}
+async function callGitHubActions(testKeyword = '') {
+  const cfg = getGitHubConfig();
+  if (!cfg) {
+    document.getElementById('setupBanner').className = 'setup-banner show';
+    showNotice('⚠️ 請先設定 GitHub 資訊才能觸發抓取', 'error', 5000);
+    return false;
+  }
+  try {
+    const body = { ref: 'main', inputs: { keyword_test: testKeyword } };
+    const resp = await fetch(`https://api.github.com/repos/${cfg.repo}/actions/workflows/scrape.yml/dispatches`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cfg.pat}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github+json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (resp.status === 204) return true;
+    if (resp.status === 401) {
+      showNotice('❌ GitHub Token 無效，請重新設定', 'error', 6000);
+      localStorage.removeItem('github_config');
+      return false;
+    }
+    if (resp.status === 404) {
+      showNotice('❌ 找不到 repo 或 workflow，請確認設定', 'error', 6000);
+      localStorage.removeItem('github_config');
+      return false;
+    }
+    showNotice('❌ GitHub API 錯誤 ' + resp.status, 'error', 5000);
+    return false;
+  } catch(e) {
+    showNotice('❌ 網路錯誤：' + e.message, 'error', 5000);
+    return false;
+  }
+}
 
 // ── 通知列 ─────────────────────────────────────────────────
 function showNotice(msg, type = 'info', duration = 0) {
@@ -465,25 +595,133 @@ function renderEmpty() {
   document.getElementById('accountsContainer').innerHTML = '<div style="color:var(--muted);font-size:13px;">抓取後自動顯示</div>';
 }
 
-// ── 立即抓取說明 + 重新整理 ────────────────────────────────
+// ── 觸發 GitHub Actions 真正抓取 ──────────────────────────
 async function triggerScrape() {
   if (isScraping) return;
-
-  // 先重新整理一次 Supabase 的資料
   isScraping = true;
   const btn = document.getElementById('scrapeBtn');
   btn.disabled = true;
   btn.classList.add('loading');
-  btn.innerHTML = '<div class="spinner" style="border-top-color:var(--muted);"></div> 更新中...';
-  showNotice('正在從資料庫載入最新資料...', 'info');
+  btn.innerHTML = '<div class="spinner" style="border-top-color:var(--muted);"></div> 觸發中...';
+  showNotice('正在呼叫 GitHub Actions...', 'info');
 
-  await loadData();
+  const ok = await callGitHubActions('');
 
   btn.disabled = false;
   btn.classList.remove('loading');
-  btn.innerHTML = '⚡ 立即抓取新資料';
+  btn.innerHTML = '⚡ 觸發立即抓取';
   isScraping = false;
-  showNotice('✅ 顯示已更新為最新資料庫內容。若要抓取全新 Threads 貼文，請到 Cowork 側邊欄 → Scheduled → threads-mingli-monitor → Run Now', 'success', 8000);
+
+  if (ok) {
+    showNotice('✅ 已觸發 GitHub Actions！Threads 爬蟲約 5～8 分鐘後完成，完成後點「🔄 重新整理顯示」查看新資料', 'success', 12000);
+  }
+}
+
+// ── 只重新整理顯示（不觸發抓取） ──────────────────────────
+async function refreshData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.innerHTML = '🔄 載入中...';
+  showNotice('從資料庫載入最新資料...', 'info');
+  await loadData();
+  await loadKeywords();
+  btn.disabled = false;
+  btn.innerHTML = '🔄 重新整理顯示';
+  showNotice('✅ 資料已更新', 'success', 3000);
+}
+
+// ── 關鍵字管理 ─────────────────────────────────────────────
+async function loadKeywords() {
+  try {
+    const data = await sbFetch('keywords?select=keyword,status,post_count,last_scraped_at&order=keyword.asc');
+    if (!Array.isArray(data)) throw new Error('載入失敗');
+
+    // 更新 stat card
+    const activeKws = data.filter(d => d.status === 'active');
+    document.getElementById('statKwCount').textContent = activeKws.length;
+    document.getElementById('statKwList').textContent = activeKws.map(d => d.keyword).join('・') || '尚無';
+
+    // 渲染關鍵字清單
+    const container = document.getElementById('kwList');
+    if (data.length === 0) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">尚無關鍵字，請在下方新增</div>';
+      return;
+    }
+    container.innerHTML = data.map(row => {
+      const lastDate = row.last_scraped_at ? new Date(row.last_scraped_at).toLocaleDateString('zh-TW') : '未抓過';
+      const isActive = row.status === 'active';
+      return `
+        <div class="kw-item">
+          <span class="kw-name">${escHtml(row.keyword)}</span>
+          <span class="kw-stats">上次：${lastDate}｜${row.post_count || 0} 篇</span>
+          <span class="kw-status ${isActive ? 'active' : 'paused'}">${isActive ? '排程中' : '已暫停'}</span>
+          <button class="kw-btn test" onclick="testKeywordDirect('${escHtml(row.keyword)}')">🧪 試抓</button>
+          <button class="kw-btn pause" onclick="toggleKeyword('${escHtml(row.keyword)}', '${isActive ? 'paused' : 'active'}')">${isActive ? '暫停' : '啟用'}</button>
+          <button class="kw-btn del" onclick="deleteKeyword('${escHtml(row.keyword)}')">刪除</button>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('kwList').innerHTML = '<div style="color:var(--muted);font-size:13px;">無法載入關鍵字</div>';
+  }
+}
+
+async function addKeyword() {
+  const input = document.getElementById('kwInput');
+  const kw = input.value.trim();
+  if (!kw) { showNotice('請輸入關鍵字', 'error', 3000); return; }
+
+  showNotice('新增中...', 'info');
+  const resp = await fetch(SUPABASE_URL + '/rest/v1/keywords', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({ keyword: kw, status: 'active', post_count: 0, created_at: new Date().toISOString() })
+  });
+
+  if (resp.ok || resp.status === 201) {
+    input.value = '';
+    showNotice(`✅「${kw}」已加入排程關鍵字`, 'success', 4000);
+    await loadKeywords();
+  } else {
+    const err = await resp.text();
+    showNotice('新增失敗：' + err.substring(0, 100), 'error', 5000);
+  }
+}
+
+async function deleteKeyword(kw) {
+  if (!confirm(`確定要刪除關鍵字「${kw}」嗎？`)) return;
+  const resp = await fetch(SUPABASE_URL + '/rest/v1/keywords?keyword=eq.' + encodeURIComponent(kw), {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  if (resp.ok) { showNotice(`已刪除「${kw}」`, 'success', 3000); await loadKeywords(); }
+  else showNotice('刪除失敗', 'error', 3000);
+}
+
+async function toggleKeyword(kw, newStatus) {
+  const resp = await fetch(SUPABASE_URL + '/rest/v1/keywords?keyword=eq.' + encodeURIComponent(kw), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
+    body: JSON.stringify({ status: newStatus })
+  });
+  if (resp.ok) { await loadKeywords(); }
+}
+
+async function testKeyword() {
+  const kw = document.getElementById('kwInput').value.trim();
+  if (!kw) { showNotice('請先在上方輸入要試抓的關鍵字', 'error', 3000); return; }
+  await testKeywordDirect(kw);
+}
+
+async function testKeywordDirect(kw) {
+  if (!confirm(`觸發試抓「${kw}」？\n\n爬蟲約 5 分鐘後完成，完成後點「重新整理顯示」查看結果。`)) return;
+  showNotice(`🧪 正在觸發試抓「${kw}」...`, 'info');
+  const ok = await callGitHubActions(kw);
+  if (ok) showNotice(`✅ 試抓「${kw}」已送出！5~8 分鐘後點「🔄 重新整理顯示」查看結果`, 'success', 12000);
 }
 
 // ── 登出 ───────────────────────────────────────────────────
@@ -498,7 +736,14 @@ function escHtml(str) {
 }
 
 // 啟動
-loadData();
+(async function() {
+  // 檢查 GitHub 設定
+  if (!getGitHubConfig()) {
+    document.getElementById('setupBanner').className = 'setup-banner show';
+  }
+  // 同時載入貼文資料和關鍵字
+  await Promise.all([loadData(), loadKeywords()]);
+})();
 </script>
 </body>
 </html>
