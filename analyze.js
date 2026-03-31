@@ -66,7 +66,9 @@ async function analyzeWithClaude(postText) {
   }
 
   const data = await response.json();
-  const raw = data.content[0].text.trim();
+  const raw = data.content[0].text.trim()
+    .replace(/^```json\n?/, '')
+    .replace(/\n?```$/, '');
   return JSON.parse(raw);
 }
 
