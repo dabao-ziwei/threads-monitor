@@ -1,0 +1,12 @@
+{
+  "name": "threads-scraper",
+  "version": "1.0.0",
+  "description": "大寶老師 Threads 命理熱文爬蟲",
+  "main": "scraper.js",
+  "scripts": {
+    "scrape": "node scraper.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}
