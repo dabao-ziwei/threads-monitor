@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>登入｜大寶老師監測站</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// 已登入就立刻跳過去，不等 Supabase，不渲染登入頁
+(function() {
+  try {
+    var auth = localStorage.getItem('dabao_logged_in');
+    if (auth) {
+      var a = JSON.parse(auth);
+      if (Date.now() - a.at < 30 * 24 * 60 * 60 * 1000) {
+        window.location.replace('dashboard.html');
+      }
+    }
+  } catch(e) {}
+})();
+</script>
 <style>
   :root {
     --bg: #0a0a0f;

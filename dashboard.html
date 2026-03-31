@@ -258,10 +258,8 @@ async function sbFetch(path) {
 <div class="footer">大寶老師專用監測工具 ｜ Threads 命理熱文追蹤</div>
 
 <script>
-const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
-const SUPABASE_KEY  = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
-const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+// SUPABASE_URL 和 SUPABASE_KEY 已在 head 定義，此處不重複宣告
+// 資料載入全部使用 sbFetch（直接 REST API，不用 JS client）
 
 let isScraping = false;
 
