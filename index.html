@@ -291,10 +291,17 @@ async function init() {
   }
 }
 
+// 允許登入的 Email（白名單）
+const ALLOWED_EMAIL = 'stephenwu.0926@gmail.com';
+
 // 傳送 Magic Link
 async function sendMagicLink() {
-  const email = document.getElementById('emailInput').value.trim();
+  const email = document.getElementById('emailInput').value.trim().toLowerCase();
   if (!email) { showMsg('請輸入 Email', 'error'); return; }
+  if (email !== ALLOWED_EMAIL) {
+    showMsg('此帳號無存取權限', 'error');
+    return;
+  }
 
   showMsg('<span style="display:flex;align-items:center;gap:8px"><span class="spinner"></span> 傳送中...</span>', 'info');
 
