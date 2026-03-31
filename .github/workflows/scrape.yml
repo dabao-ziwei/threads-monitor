@@ -1,4 +1,4 @@
-name: Threads 命理熱文爬蟲
+name: Threads 命理熱文爬蟲 + 分析
 
 on:
   # 每天 3 次：早上 8 點、下午 2 點、晚上 8 點（台灣時間 UTC+8）
@@ -6,7 +6,6 @@ on:
     - cron: '0 0 * * *'   # UTC 00:00 = 台灣 08:00
     - cron: '0 6 * * *'   # UTC 06:00 = 台灣 14:00
     - cron: '0 12 * * *'  # UTC 12:00 = 台灣 20:00
-
   # 也可以在 GitHub 手動觸發
   workflow_dispatch:
     inputs:
@@ -14,12 +13,16 @@ on:
         description: '測試用關鍵字（留空則用 Supabase 設定）'
         required: false
         default: ''
+      ai_provider:
+        description: '分析用 AI（claude 或 gemini，預設 claude）'
+        required: false
+        default: 'claude'
 
 jobs:
+  # Job 1：爬蟲
   scrape:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -50,3 +53,31 @@ jobs:
           name: scrape-logs
           path: '*.log'
           retention-days: 7
+
+  # Job 2：AI 分析（爬蟲跑完才啟動）
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: scrape  # 等 scrape job 完成
+    # 即使是測試模式（試抓）也跑分析
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安裝相依套件
+        run: npm install
+
+      - name: 執行爆文分析
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # 手動觸發可切換 AI，排程預設用 claude
+          AI_PROVIDER: ${{ github.event.inputs.ai_provider || 'claude' }}
+        run: node analyze.js
