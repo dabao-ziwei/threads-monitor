@@ -267,8 +267,8 @@ async function init() {
   // 檢查是否已有有效 session
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    // 已登入，先寫 sessionStorage 再跳轉
-    sessionStorage.setItem('dabao_auth', JSON.stringify({ verified_at: Date.now(), method: 'supabase' }));
+    // 已登入，寫 localStorage 再跳轉（30天有效）
+    localStorage.setItem('dabao_logged_in', JSON.stringify({ at: Date.now() }));
     window.location.href = DASHBOARD_URL;
     return;
   }
@@ -349,9 +349,9 @@ async function handleMagicLinkCallback() {
   }
 }
 
-// 進入 Dashboard（先寫 sessionStorage 再跳轉，避免 dashboard 端找不到 auth）
+// 進入 Dashboard（寫 localStorage 30天有效，避免關閉瀏覽器後循環）
 function goToDashboard() {
-  sessionStorage.setItem('dabao_auth', JSON.stringify({ verified_at: Date.now(), method: 'login' }));
+  localStorage.setItem('dabao_logged_in', JSON.stringify({ at: Date.now() }));
   window.location.href = DASHBOARD_URL;
 }
 
@@ -476,14 +476,8 @@ async function loginWithPasskey() {
       throw new Error('找不到此裝置的登入憑證，請用 Email 重新登入');
     }
 
-    // 取得對應 user 的 session（用 admin 模式或直接信任本地驗證）
-    // 注意：這是簡化版本，適合個人使用
-    // 將 passkey 驗證結果存到 sessionStorage
-    sessionStorage.setItem('dabao_auth', JSON.stringify({
-      user_id: data.user_id,
-      verified_at: Date.now(),
-      method: 'passkey'
-    }));
+    // passkey 驗證通過，寫 localStorage 30天有效
+    localStorage.setItem('dabao_logged_in', JSON.stringify({ at: Date.now() }));
 
     window.location.href = DASHBOARD_URL;
 
