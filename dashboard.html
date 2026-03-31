@@ -4,24 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Threads 命理熱文監測站 | 大寶老師</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ── 驗證保護 ────────────────────────────────────────────────
+// ── 設定 ────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
 const SUPABASE_KEY  = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 
-(async function checkAuth() {
-  const { createClient } = supabase;
-  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) return;
+// ── 驗證保護（純 sessionStorage，不依賴 Supabase JS）─────────
+(function checkAuth() {
   const auth = sessionStorage.getItem('dabao_auth');
   if (auth) {
-    const a = JSON.parse(auth);
-    if (Date.now() - a.verified_at < 8 * 60 * 60 * 1000) return;
+    try {
+      const a = JSON.parse(auth);
+      if (Date.now() - a.verified_at < 24 * 60 * 60 * 1000) return; // 24小時有效
+    } catch(e) {}
   }
   window.location.href = 'index.html';
 })();
+
+// ── REST API 工具函式 ────────────────────────────────────────
+async function sbFetch(path) {
+  const resp = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY
+    }
+  });
+  return resp.json();
+}
 </script>
 <style>
   :root {
@@ -267,17 +276,15 @@ function hideNotice() { document.getElementById('noticeBar').className = 'notice
 
 // ── 從 Supabase 載入資料 ────────────────────────────────────
 async function loadData() {
-  // 1. 最新批次的貼文
-  const { data: posts, error } = await sb
-    .from('threads_posts')
-    .select('*')
-    .order('scraped_at', { ascending: false })
-    .limit(60);
-
-  if (error) {
-    showNotice('載入失敗：' + error.message, 'error');
+  // 1. 最新批次的貼文（直接用 REST API）
+  let posts;
+  try {
+    posts = await sbFetch('threads_posts?select=*&order=scraped_at.desc&limit=60');
+    if (!Array.isArray(posts)) throw new Error(JSON.stringify(posts));
+  } catch(e) {
+    showNotice('載入失敗：' + e.message, 'error');
     document.getElementById('postsContainer').innerHTML =
-      '<div class="empty-state"><div class="icon">⚠️</div><p>無法連接資料庫<br><small>' + error.message + '</small></p></div>';
+      '<div class="empty-state"><div class="icon">⚠️</div><p>無法連接資料庫<br><small>' + e.message + '</small></p></div>';
     return;
   }
 
@@ -297,9 +304,13 @@ async function loadData() {
   const latestBatch = posts[0].batch_id;
   const batchPosts = posts.filter(p => p.batch_id === latestBatch);
 
-  // 4. 統計
-  const { count } = await sb.from('threads_posts').select('*', { count: 'exact', head: true });
-  document.getElementById('statTotal').textContent = count || posts.length;
+  // 4. 統計（用 REST API 取總數）
+  const countResp = await fetch(SUPABASE_URL + '/rest/v1/threads_posts?select=id', {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'count=exact' }
+  });
+  const totalCount = countResp.headers.get('content-range')
+    ? parseInt(countResp.headers.get('content-range').split('/')[1]) : posts.length;
+  document.getElementById('statTotal').textContent = totalCount || posts.length;
   document.getElementById('statBatch').textContent = batchPosts.length + ' 篇';
 
   // 5. 關鍵字統計
@@ -477,9 +488,8 @@ async function triggerScrape() {
 }
 
 // ── 登出 ───────────────────────────────────────────────────
-async function logout() {
+function logout() {
   sessionStorage.removeItem('dabao_auth');
-  await sb.auth.signOut();
   window.location.href = 'index.html';
 }
 
