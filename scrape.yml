@@ -1,0 +1,52 @@
+name: Threads 命理熱文爬蟲
+
+on:
+  # 每天 3 次：早上 8 點、下午 2 點、晚上 8 點（台灣時間 UTC+8）
+  schedule:
+    - cron: '0 0 * * *'   # UTC 00:00 = 台灣 08:00
+    - cron: '0 6 * * *'   # UTC 06:00 = 台灣 14:00
+    - cron: '0 12 * * *'  # UTC 12:00 = 台灣 20:00
+
+  # 也可以在 GitHub 手動觸發
+  workflow_dispatch:
+    inputs:
+      keyword_test:
+        description: '測試用關鍵字（留空則用 Supabase 設定）'
+        required: false
+        default: ''
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安裝相依套件
+        run: npm install
+
+      - name: 安裝 Playwright 瀏覽器
+        run: npx playwright install chromium --with-deps
+
+      - name: 執行爬蟲
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          THREADS_COOKIES: ${{ secrets.THREADS_COOKIES }}
+          KEYWORD_TEST: ${{ github.event.inputs.keyword_test }}
+        run: node scraper.js
+
+      - name: 上傳執行記錄（失敗時）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-logs
+          path: '*.log'
+          retention-days: 7
