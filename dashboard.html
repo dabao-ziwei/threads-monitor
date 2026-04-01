@@ -296,7 +296,7 @@ async function sbFetch(path) {
       <button class="kw-add-btn" onclick="testKeyword()" style="background:var(--accent-dim, rgba(201,169,110,0.12)); color:var(--accent); border:1px solid rgba(201,169,110,0.4);">🧪 試抓</button>
     </div>
     <div style="margin-top:10px; font-size:12px; color:var(--muted);">
-      「加入排程」= 每次自動抓取都會搜這個詞｜「試抓」= 只抓一次看看有幾篇，結果幾分鐘後重整可見
+      「加入排程」= 每次自動抓取都會搜這個詞｜「試抓」= 預覽品質，結果只出現在彈窗，不影響主列表，看完再決定要不要加入排程
     </div>
     <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span style="font-size:13px;color:var(--muted);">🗑️ 清除低瀏覽量資料：</span>
@@ -464,7 +464,7 @@ function hideNotice() { document.getElementById('noticeBar').className = 'notice
 async function loadData() {
   let posts;
   try {
-    posts = await sbFetch('threads_posts?select=*&order=scraped_at.desc&limit=500');
+    posts = await sbFetch('threads_posts?select=*&is_test=eq.false&order=scraped_at.desc&limit=500');
     if (!Array.isArray(posts)) throw new Error(JSON.stringify(posts));
   } catch(e) {
     showNotice('載入失敗：' + e.message, 'error');
@@ -1018,10 +1018,116 @@ async function testKeyword() {
 }
 
 async function testKeywordDirect(kw) {
-  if (!confirm(`觸發試抓「${kw}」？\n\n爬蟲約 5 分鐘後完成，完成後點「重新整理顯示」查看結果。`)) return;
+  if (!confirm(`觸發試抓「${kw}」？\n\n爬蟲約 5～8 分鐘後完成，結果會自動出現在「試抓預覽」面板，不會影響主列表。`)) return;
   showNotice(`🧪 正在觸發試抓「${kw}」...`, 'info');
   const ok = await callGitHubActions(kw);
-  if (ok) showNotice(`✅ 試抓「${kw}」已送出！5~8 分鐘後點「🔄 重新整理顯示」查看結果`, 'success', 12000);
+  if (ok) {
+    showNotice(`✅ 試抓「${kw}」已送出！系統每 30 秒自動偵測，完成後預覽面板會自動出現`, 'success', 10000);
+    startTestPollLoop(kw);
+  }
+}
+
+// ── 試抓輪詢：每 30 秒偵測是否有新的 is_test 資料 ──────────
+let testPollTimer = null;
+let testPollKw = '';
+let testPollStart = null;
+
+function startTestPollLoop(kw) {
+  if (testPollTimer) clearInterval(testPollTimer);
+  testPollKw = kw;
+  testPollStart = Date.now();
+  testPollTimer = setInterval(async () => {
+    // 超過 15 分鐘就停止輪詢
+    if (Date.now() - testPollStart > 15 * 60 * 1000) {
+      clearInterval(testPollTimer);
+      return;
+    }
+    await checkAndShowTestResults(kw);
+  }, 30000);
+}
+
+async function checkAndShowTestResults(kw) {
+  try {
+    const data = await sbFetch(`threads_posts?select=*&is_test=eq.true&keyword=eq.${encodeURIComponent(kw)}&order=scraped_at.desc&limit=50`);
+    if (Array.isArray(data) && data.length > 0) {
+      clearInterval(testPollTimer);
+      showTestPreviewPanel(kw, data);
+    }
+  } catch(e) { /* 靜默失敗 */ }
+}
+
+// ── 試抓預覽面板 ───────────────────────────────────────────
+function showTestPreviewPanel(kw, posts) {
+  // 移除舊的面板
+  const old = document.getElementById('testPreviewPanel');
+  if (old) old.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'testPreviewPanel';
+  panel.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+
+  const cards = posts.map(p => {
+    const text = (p.post_text || '').substring(0, 250);
+    const url = p.post_url ? `<a href="${escHtml(p.post_url)}" target="_blank" rel="noopener" style="font-size:12px;color:#c9a96e;text-decoration:none;border:1px solid rgba(201,169,110,0.4);border-radius:6px;padding:2px 8px;">🔗 開原貼</a>` : '';
+    return `<div style="background:#22222f;border:1px solid #333;border-radius:10px;padding:14px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+        <span style="color:#c9a96e;font-weight:600;font-size:13px;">${escHtml(p.username||'')}</span>
+        ${url}
+      </div>
+      <div style="font-size:12px;color:#bbb;line-height:1.6;white-space:pre-wrap;">${escHtml(text)}${(p.post_text||'').length>250?'...':''}</div>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="background:#1a1a24;border:1px solid #c9a96e;border-radius:16px;padding:24px;max-width:700px;width:100%;max-height:85vh;display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#c9a96e;">🧪 試抓預覽：「${escHtml(kw)}」</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">共 ${posts.length} 篇，確認品質後決定是否加入排程。這些資料不會出現在主列表。</div>
+        </div>
+        <button onclick="closeTestPanel()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;padding:4px;">✕</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;">${cards}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="promoteTestKeyword('${escHtml(kw)}')" style="flex:1;padding:10px;background:#c9a96e;color:#000;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">✅ 品質不錯，加入排程</button>
+        <button onclick="discardTestData('${escHtml(kw)}')" style="flex:1;padding:10px;background:rgba(231,76,60,0.12);color:#e74c3c;border:1px solid rgba(231,76,60,0.4);border-radius:8px;font-size:14px;cursor:pointer;">🗑️ 丟棄試抓資料</button>
+      </div>
+    </div>`;
+  document.body.appendChild(panel);
+}
+
+function closeTestPanel() {
+  const panel = document.getElementById('testPreviewPanel');
+  if (panel) panel.remove();
+}
+
+// 加入排程（先刪試抓資料，再把關鍵字加進 keywords 表）
+async function promoteTestKeyword(kw) {
+  closeTestPanel();
+  await discardTestData(kw, true); // 先清試抓資料
+  // 加入關鍵字排程
+  const resp = await fetch(SUPABASE_URL + '/rest/v1/keywords', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ keyword: kw, status: 'active', post_count: 0, created_at: new Date().toISOString() })
+  });
+  if (resp.ok || resp.status === 201) {
+    showNotice(`✅「${kw}」已加入排程！試抓資料已清除`, 'success', 5000);
+    await loadKeywords();
+  } else {
+    showNotice(`⚠️ 加入排程失敗（關鍵字可能已存在）`, 'error', 4000);
+  }
+}
+
+// 丟棄試抓資料
+async function discardTestData(kw, silent = false) {
+  if (!silent && !confirm(`確定丟棄「${kw}」的試抓資料？`)) return;
+  closeTestPanel();
+  await fetch(`${SUPABASE_URL}/rest/v1/threads_posts?is_test=eq.true&keyword=eq.${encodeURIComponent(kw)}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  if (!silent) showNotice(`🗑️「${kw}」試抓資料已清除`, 'success', 3000);
 }
 
 // ── 登出 ───────────────────────────────────────────────────
