@@ -374,6 +374,7 @@ let currentKeyword = 'all';
 let timePeriod = 'all';
 let viewsThreshold = 0;
 let displayedCount = 20;
+let pendingStats = {}; // 暫存未儲存的 views/likes/comments，key 為 post id
 
 // ── GitHub Actions 設定 ─────────────────────────────────────
 function getGitHubConfig() {
@@ -658,9 +659,9 @@ function renderPosts(posts) {
         <div class="post-text">${escHtml(text)}${(p.post_text||'').length > 300 ? '...' : ''}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;">
           <span style="font-size:12px;color:var(--muted);">回填數據：</span>
-          <input type="number" min="0" placeholder="瀏覽數" value="${p.views || ''}" id="views_${p.id}" style="width:80px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
-          <input type="number" min="0" placeholder="讚數" value="${p.likes || ''}" id="likes_${p.id}" style="width:70px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
-          <input type="number" min="0" placeholder="留言數" value="${p.comments || ''}" id="comments_${p.id}" style="width:70px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
+          <input type="number" min="0" placeholder="瀏覽數" value="${pendingStats[p.id]?.views ?? p.views ?? ''}" id="views_${p.id}" oninput="cachePostStat('${p.id}','views',this.value)" style="width:80px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
+          <input type="number" min="0" placeholder="讚數" value="${pendingStats[p.id]?.likes ?? p.likes ?? ''}" id="likes_${p.id}" oninput="cachePostStat('${p.id}','likes',this.value)" style="width:70px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
+          <input type="number" min="0" placeholder="留言數" value="${pendingStats[p.id]?.comments ?? p.comments ?? ''}" id="comments_${p.id}" oninput="cachePostStat('${p.id}','comments',this.value)" style="width:70px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
           <button onclick="savePostStats('${p.id}')" style="padding:4px 12px;background:var(--accent);color:#000;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">儲存</button>
           <span id="save_status_${p.id}" style="font-size:12px;color:var(--muted);"></span>
         </div>
@@ -669,12 +670,19 @@ function renderPosts(posts) {
   }).join('');
 }
 
+// ── 暫存輸入值（切換 tab 不會消失）─────────────────────────
+function cachePostStat(postId, field, value) {
+  if (!pendingStats[postId]) pendingStats[postId] = {};
+  pendingStats[postId][field] = value === '' ? null : parseInt(value);
+}
+
 // ── 儲存貼文數據 ───────────────────────────────────────────
 async function savePostStats(postId) {
-  const views   = parseInt(document.getElementById('views_'   + postId).value) || null;
-  const likes   = parseInt(document.getElementById('likes_'   + postId).value) || null;
+  const views    = parseInt(document.getElementById('views_'    + postId).value) || null;
+  const likes    = parseInt(document.getElementById('likes_'    + postId).value) || null;
   const comments = parseInt(document.getElementById('comments_' + postId).value) || null;
   const statusEl = document.getElementById('save_status_' + postId);
+  statusEl.style.color = 'var(--muted)';
   statusEl.textContent = '儲存中...';
 
   const resp = await fetch(SUPABASE_URL + '/rest/v1/threads_posts?id=eq.' + postId, {
@@ -689,6 +697,11 @@ async function savePostStats(postId) {
   });
 
   if (resp.ok) {
+    // 同步回 allPosts，讓排序即時反映
+    const post = allPosts.find(p => p.id == postId);
+    if (post) { post.views = views; post.likes = likes; post.comments = comments; }
+    // 清除暫存
+    delete pendingStats[postId];
     statusEl.style.color = '#2ecc71';
     statusEl.textContent = '✅ 已儲存';
     setTimeout(() => { statusEl.textContent = ''; }, 3000);
