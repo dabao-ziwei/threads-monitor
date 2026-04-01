@@ -324,7 +324,22 @@ async function sbFetch(path) {
     </div>
   </div>
 
-  <!-- 最新熱文 -->
+  <!-- 洞察 + 帳號（統計數字下方、貼文上方） -->
+  <div class="two-col">
+    <div>
+      <div class="section-title">策略洞察（根據最新資料）</div>
+      <div id="insightsContainer">
+        <div class="skeleton" style="height:120px; margin-bottom:10px; border-radius:12px;"></div>
+        <div class="skeleton" style="height:120px; border-radius:12px;"></div>
+      </div>
+    </div>
+    <div class="trend-card">
+      <div class="section-title">出現過的帳號</div>
+      <div id="accountsContainer"><div class="skeleton" style="height:120px;"></div></div>
+    </div>
+  </div>
+
+  <!-- 貼文瀑布流 -->
   <div class="posts-section">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div class="section-title" style="margin-bottom:0;">貼文列表</div>
@@ -355,25 +370,9 @@ async function sbFetch(path) {
       <div class="skeleton" style="height:100px; margin-bottom:10px; border-radius:12px;"></div>
       <div class="skeleton" style="height:100px; border-radius:12px;"></div>
     </div>
-    <div id="loadMoreArea" style="display:none;text-align:center;margin-top:16px;">
-      <button onclick="loadMorePosts()" style="padding:8px 32px;background:var(--card2);color:var(--muted);border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;">載入更多</button>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px;" id="loadMoreCount"></div>
-    </div>
-  </div>
-
-  <!-- 洞察 -->
-  <div class="two-col">
-    <div>
-      <div class="section-title">策略洞察（根據最新資料）</div>
-      <div id="insightsContainer">
-        <div class="skeleton" style="height:120px; margin-bottom:10px; border-radius:12px;"></div>
-        <div class="skeleton" style="height:120px; border-radius:12px;"></div>
-      </div>
-    </div>
-    <div class="trend-card">
-      <div class="section-title">出現過的帳號</div>
-      <div id="accountsContainer"><div class="skeleton" style="height:120px;"></div></div>
-    </div>
+    <!-- 無限滾動觸發點：進入視窗就自動載入下一批 -->
+    <div id="scrollSentinel" style="height:1px;margin-top:16px;"></div>
+    <div id="loadMoreCount" style="text-align:center;font-size:12px;color:var(--muted);margin-top:8px;display:none;"></div>
   </div>
 
 </div>
@@ -611,12 +610,16 @@ function renderFilteredPosts() {
   });
   const total = filtered.length;
   const toShow = filtered.slice(0, displayedCount);
-  const loadMoreArea = document.getElementById('loadMoreArea');
+  const countEl = document.getElementById('loadMoreCount');
+  const sentinel = document.getElementById('scrollSentinel');
   if (total > displayedCount) {
-    loadMoreArea.style.display = 'block';
-    document.getElementById('loadMoreCount').textContent = `已顯示 ${toShow.length} / ${total} 篇`;
+    countEl.style.display = 'block';
+    countEl.textContent = `已顯示 ${toShow.length} / ${total} 篇，向下滾動自動載入`;
+    if (sentinel) sentinel.style.display = 'block';
   } else {
-    loadMoreArea.style.display = 'none';
+    countEl.style.display = total > 0 ? 'block' : 'none';
+    countEl.textContent = total > 0 ? `共 ${total} 篇，已全部顯示` : '';
+    if (sentinel) sentinel.style.display = 'none';
   }
   renderPosts(toShow);
 }
@@ -647,7 +650,21 @@ async function cleanupLowViews() {
   }
 }
 
-// ── 載入更多 ───────────────────────────────────────────────
+// ── 無限滾動 ───────────────────────────────────────────────
+let scrollObserver = null;
+
+function initScrollObserver() {
+  if (scrollObserver) scrollObserver.disconnect();
+  const sentinel = document.getElementById('scrollSentinel');
+  if (!sentinel) return;
+  scrollObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      loadMorePosts();
+    }
+  }, { rootMargin: '200px' });
+  scrollObserver.observe(sentinel);
+}
+
 function loadMorePosts() {
   displayedCount += 20;
   renderFilteredPosts();
@@ -1149,6 +1166,7 @@ function escHtml(str) {
   }
   // 同時載入貼文資料和關鍵字
   await Promise.all([loadData(), loadKeywords()]);
+  initScrollObserver();
 })();
 </script>
 </body>
