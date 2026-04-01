@@ -137,6 +137,12 @@ async function sbFetch(path) {
   .post-meta .time { font-size: 12px; color: var(--muted); }
   .post-text { font-size: 13px; line-height: 1.7; color: #ccc; white-space: pre-wrap; }
 
+  /* 關鍵字 Tab */
+  .kw-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .kw-tab { padding:5px 14px; border-radius:20px; border:1px solid var(--border); background:var(--card2); color:var(--muted); font-size:13px; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+  .kw-tab:hover { border-color:var(--accent); color:var(--accent); }
+  .kw-tab.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+
   /* 空狀態 */
   .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
   .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
@@ -282,6 +288,13 @@ async function sbFetch(path) {
     <div style="margin-top:10px; font-size:12px; color:var(--muted);">
       「加入排程」= 每次自動抓取都會搜這個詞｜「試抓」= 只抓一次看看有幾篇，結果幾分鐘後重整可見
     </div>
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:13px;color:var(--muted);">🗑️ 清除低瀏覽量資料：</span>
+      <input type="number" id="cleanupThresholdInput" placeholder="輸入門檻，例如：1000" min="1"
+        style="width:180px;padding:5px 10px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
+      <button onclick="cleanupLowViews()" style="padding:5px 14px;background:rgba(231,76,60,0.12);color:#e74c3c;border:1px solid rgba(231,76,60,0.4);border-radius:6px;font-size:13px;cursor:pointer;">刪除低於門檻的文章</button>
+      <span style="font-size:12px;color:var(--muted);">（未填瀏覽量的不受影響）</span>
+    </div>
   </div>
 
   <!-- 熱度 + 話題 -->
@@ -303,11 +316,32 @@ async function sbFetch(path) {
 
   <!-- 最新熱文 -->
   <div class="posts-section">
-    <div class="section-title">最新抓取貼文</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <div class="section-title" style="margin-bottom:0;">貼文列表</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--muted);">瀏覽量門檻：</span>
+        <input type="number" id="viewsThresholdInput" placeholder="例如：5000" min="0"
+          style="width:100px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;"
+          onchange="applyFilter()" onkeydown="if(event.key==='Enter'&&!event.isComposing) applyFilter()">
+        <span style="font-size:12px;color:var(--muted);">以上才顯示</span>
+        <button onclick="applyFilter()" style="padding:4px 10px;background:var(--card2);color:var(--accent);border:1px solid rgba(201,169,110,0.4);border-radius:6px;font-size:12px;cursor:pointer;">套用</button>
+      </div>
+    </div>
+    <div class="kw-tabs" id="timeTabs">
+      <button class="kw-tab active" onclick="switchTimePeriod('all')">全部時間</button>
+      <button class="kw-tab" onclick="switchTimePeriod('today')">今日</button>
+      <button class="kw-tab" onclick="switchTimePeriod('week')">本週</button>
+      <button class="kw-tab" onclick="switchTimePeriod('month')">本月</button>
+    </div>
+    <div class="kw-tabs" id="kwTabs"></div>
     <div id="postsContainer">
       <div class="skeleton" style="height:100px; margin-bottom:10px; border-radius:12px;"></div>
       <div class="skeleton" style="height:100px; margin-bottom:10px; border-radius:12px;"></div>
       <div class="skeleton" style="height:100px; border-radius:12px;"></div>
+    </div>
+    <div id="loadMoreArea" style="display:none;text-align:center;margin-top:16px;">
+      <button onclick="loadMorePosts()" style="padding:8px 32px;background:var(--card2);color:var(--muted);border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;">載入更多</button>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;" id="loadMoreCount"></div>
     </div>
   </div>
 
@@ -335,6 +369,11 @@ async function sbFetch(path) {
 // 資料載入全部使用 sbFetch（直接 REST API，不用 JS client）
 
 let isScraping = false;
+let allPosts = [];
+let currentKeyword = 'all';
+let timePeriod = 'all';
+let viewsThreshold = 0;
+let displayedCount = 20;
 
 // ── GitHub Actions 設定 ─────────────────────────────────────
 function getGitHubConfig() {
@@ -405,10 +444,9 @@ function hideNotice() { document.getElementById('noticeBar').className = 'notice
 
 // ── 從 Supabase 載入資料 ────────────────────────────────────
 async function loadData() {
-  // 1. 最新批次的貼文（直接用 REST API）
   let posts;
   try {
-    posts = await sbFetch('threads_posts?select=*&order=scraped_at.desc&limit=60');
+    posts = await sbFetch('threads_posts?select=*&order=scraped_at.desc&limit=500');
     if (!Array.isArray(posts)) throw new Error(JSON.stringify(posts));
   } catch(e) {
     showNotice('載入失敗：' + e.message, 'error');
@@ -417,23 +455,21 @@ async function loadData() {
     return;
   }
 
-  if (!posts || posts.length === 0) {
-    renderEmpty();
-    return;
-  }
+  if (!posts || posts.length === 0) { renderEmpty(); return; }
 
-  // 2. 更新時間
-  const latest = posts[0].scraped_at;
-  const latestDate = new Date(latest);
+  allPosts = posts;
+
+  // 更新時間
+  const latestDate = new Date(posts[0].scraped_at);
   const pad = n => String(n).padStart(2,'0');
   document.getElementById('lastUpdateTime').textContent =
     `${latestDate.getFullYear()}/${pad(latestDate.getMonth()+1)}/${pad(latestDate.getDate())} ${pad(latestDate.getHours())}:${pad(latestDate.getMinutes())}`;
 
-  // 3. 最新批次（同 batch_id）
+  // 最新批次（同 batch_id）
   const latestBatch = posts[0].batch_id;
   const batchPosts = posts.filter(p => p.batch_id === latestBatch);
 
-  // 4. 統計（用 REST API 取總數）
+  // 總數（REST API count）
   const countResp = await fetch(SUPABASE_URL + '/rest/v1/threads_posts?select=id', {
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'count=exact' }
   });
@@ -442,7 +478,7 @@ async function loadData() {
   document.getElementById('statTotal').textContent = totalCount || posts.length;
   document.getElementById('statBatch').textContent = batchPosts.length + ' 篇';
 
-  // 5. 關鍵字統計
+  // 關鍵字統計
   const kwCount = {};
   batchPosts.forEach(p => { kwCount[p.keyword] = (kwCount[p.keyword] || 0) + 1; });
   const sortedKw = Object.entries(kwCount).sort((a,b) => b[1]-a[1]);
@@ -452,7 +488,8 @@ async function loadData() {
   }
 
   renderKeywordBars(sortedKw, batchPosts.length);
-  renderPosts(batchPosts.length > 0 ? batchPosts : posts.slice(0, 20));
+  buildKeywordTabs();
+  renderFilteredPosts();
   renderInsights(batchPosts.length > 0 ? batchPosts : posts.slice(0, 20));
   renderAccounts(posts);
   renderTrendTags(batchPosts.length > 0 ? batchPosts : posts.slice(0, 20));
@@ -483,6 +520,119 @@ function renderTrendTags(posts) {
   document.getElementById('trendTags').innerHTML = found.length > 0
     ? found.map((kw, i) => `<span class="trend-tag ${types[i] || ''}">${kw}</span>`).join('')
     : '<div style="color:var(--muted);font-size:13px;">抓取資料後自動分析</div>';
+}
+
+// ── 建立關鍵字 Tab ─────────────────────────────────────────
+function buildKeywordTabs() {
+  const keywords = [...new Set(allPosts.map(p => p.keyword).filter(Boolean))].sort();
+  const container = document.getElementById('kwTabs');
+  if (keywords.length === 0) { container.innerHTML = ''; return; }
+  container.innerHTML =
+    `<button class="kw-tab ${currentKeyword === 'all' ? 'active' : ''}" onclick="switchTab('all')">全部（${allPosts.length}）</button>` +
+    keywords.map(kw => {
+      const cnt = allPosts.filter(p => p.keyword === kw).length;
+      return `<button class="kw-tab ${currentKeyword === kw ? 'active' : ''}" onclick="switchTab('${escHtml(kw)}')">${escHtml(kw)}（${cnt}）</button>`;
+    }).join('');
+}
+
+// ── 切換關鍵字 Tab ─────────────────────────────────────────
+function switchTab(kw) {
+  currentKeyword = kw;
+  displayedCount = 20;
+  buildKeywordTabs();
+  renderFilteredPosts();
+}
+
+// ── 切換時間 Tab ───────────────────────────────────────────
+function switchTimePeriod(period) {
+  timePeriod = period;
+  displayedCount = 20;
+  document.querySelectorAll('#timeTabs .kw-tab').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  buildKeywordTabs();
+  renderFilteredPosts();
+}
+
+// ── 套用顯示門檻篩選 ──────────────────────────────────────
+function applyFilter() {
+  viewsThreshold = parseInt(document.getElementById('viewsThresholdInput').value) || 0;
+  displayedCount = 20;
+  renderFilteredPosts();
+}
+
+// ── 時間範圍輔助 ───────────────────────────────────────────
+function getTimeCutoff(period) {
+  const now = new Date();
+  if (period === 'today') {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (period === 'week') {
+    const d = new Date(now); d.setDate(d.getDate() - 7); return d;
+  } else if (period === 'month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  return null;
+}
+
+// ── 篩選 + 排序 + 分頁渲染 ────────────────────────────────
+function renderFilteredPosts() {
+  const cutoff = getTimeCutoff(timePeriod);
+  let filtered = allPosts.filter(p => {
+    if (currentKeyword !== 'all' && p.keyword !== currentKeyword) return false;
+    if (viewsThreshold > 0 && (p.views || 0) < viewsThreshold) return false;
+    if (cutoff) {
+      const t = new Date(p.post_time || p.scraped_at);
+      if (t < cutoff) return false;
+    }
+    return true;
+  });
+  // 有填瀏覽量的降序排前面，未填的沉底
+  filtered.sort((a, b) => {
+    const av = a.views != null ? a.views : -1;
+    const bv = b.views != null ? b.views : -1;
+    return bv - av;
+  });
+  const total = filtered.length;
+  const toShow = filtered.slice(0, displayedCount);
+  const loadMoreArea = document.getElementById('loadMoreArea');
+  if (total > displayedCount) {
+    loadMoreArea.style.display = 'block';
+    document.getElementById('loadMoreCount').textContent = `已顯示 ${toShow.length} / ${total} 篇`;
+  } else {
+    loadMoreArea.style.display = 'none';
+  }
+  renderPosts(toShow);
+}
+
+// ── 清除低瀏覽量歷史資料 ──────────────────────────────────
+async function cleanupLowViews() {
+  const threshold = parseInt(document.getElementById('cleanupThresholdInput').value);
+  if (!threshold || threshold <= 0) {
+    showNotice('請先輸入有效的瀏覽量門檻', 'error', 3000); return;
+  }
+  if (!confirm(`確定要刪除「瀏覽量已填入且低於 ${threshold.toLocaleString()} 的文章」嗎？\n\n⚠️ 此操作不可還原。未填瀏覽量的文章不受影響。`)) return;
+
+  showNotice(`🗑️ 清除中...`, 'info');
+  const resp = await fetch(
+    `${SUPABASE_URL}/rest/v1/threads_posts?views=lt.${threshold}&views=not.is.null`,
+    {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=minimal' }
+    }
+  );
+  if (resp.ok) {
+    showNotice(`✅ 清除完成！低於 ${threshold.toLocaleString()} 瀏覽量的文章已刪除`, 'success', 5000);
+    document.getElementById('cleanupThresholdInput').value = '';
+    await loadData();
+  } else {
+    const err = await resp.text();
+    showNotice('刪除失敗：' + err.substring(0, 100), 'error', 5000);
+  }
+}
+
+// ── 載入更多 ───────────────────────────────────────────────
+function loadMorePosts() {
+  displayedCount += 20;
+  renderFilteredPosts();
 }
 
 // ── 渲染貼文 ───────────────────────────────────────────────
