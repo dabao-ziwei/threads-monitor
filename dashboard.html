@@ -494,17 +494,58 @@ function renderPosts(posts) {
     const t = p.post_time ? new Date(p.post_time) : null;
     const timeStr = t ? `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}` : '';
     const text = (p.post_text || '').replace(/\n{3,}/g, '\n\n').substring(0, 300);
+    const viralBadge = p.is_viral ? '<span style="background:rgba(46,204,113,0.15);color:#2ecc71;border:1px solid rgba(46,204,113,0.4);border-radius:10px;padding:2px 8px;font-size:11px;">🔥 爆文</span>' : '';
+    const urlBtn = p.post_url ? `<a href="${escHtml(p.post_url)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent);text-decoration:none;border:1px solid rgba(201,169,110,0.4);border-radius:6px;padding:3px 10px;white-space:nowrap;">🔗 開原貼</a>` : '';
     return `
       <div class="post-card">
         <div class="post-meta">
           <span class="username">${escHtml(p.username || '未知帳號')}</span>
           <span class="kw-tag">${escHtml(p.keyword)}</span>
           ${timeStr ? `<span class="time">${timeStr}</span>` : ''}
+          ${viralBadge}
+          <span style="margin-left:auto;">${urlBtn}</span>
         </div>
         <div class="post-text">${escHtml(text)}${(p.post_text||'').length > 300 ? '...' : ''}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <span style="font-size:12px;color:var(--muted);">回填數據：</span>
+          <input type="number" min="0" placeholder="瀏覽數" value="${p.views || ''}" id="views_${p.id}" style="width:80px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
+          <input type="number" min="0" placeholder="讚數" value="${p.likes || ''}" id="likes_${p.id}" style="width:70px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
+          <input type="number" min="0" placeholder="留言數" value="${p.comments || ''}" id="comments_${p.id}" style="width:70px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
+          <button onclick="savePostStats('${p.id}')" style="padding:4px 12px;background:var(--accent);color:#000;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">儲存</button>
+          <span id="save_status_${p.id}" style="font-size:12px;color:var(--muted);"></span>
+        </div>
       </div>
     `;
   }).join('');
+}
+
+// ── 儲存貼文數據 ───────────────────────────────────────────
+async function savePostStats(postId) {
+  const views   = parseInt(document.getElementById('views_'   + postId).value) || null;
+  const likes   = parseInt(document.getElementById('likes_'   + postId).value) || null;
+  const comments = parseInt(document.getElementById('comments_' + postId).value) || null;
+  const statusEl = document.getElementById('save_status_' + postId);
+  statusEl.textContent = '儲存中...';
+
+  const resp = await fetch(SUPABASE_URL + '/rest/v1/threads_posts?id=eq.' + postId, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({ views, likes, comments })
+  });
+
+  if (resp.ok) {
+    statusEl.style.color = '#2ecc71';
+    statusEl.textContent = '✅ 已儲存';
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  } else {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '❌ 儲存失敗';
+  }
 }
 
 // ── 渲染洞察 ───────────────────────────────────────────────
