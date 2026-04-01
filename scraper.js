@@ -15,7 +15,6 @@ function clean(str) {
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .trim();
 }
-
 // 語言過濾：只保留繁中文章
 // 規則：中文字符比例 > 15%，且韓文字符 < 10 個
 function isChinesePost(text) {
@@ -89,7 +88,7 @@ async function main() {
   console.log(`\n🌙 大寶老師命理監測站 - 開始抓取`);
   console.log(`📦 Batch ID: ${batchId}`);
   console.log(`⏰ 時間: ${startTime.toLocaleString('zh-TW')}`);
-  if (isTestMode) console.log(`🧪 測試模式：只抓「${testKeyword}」\n`);
+  if (isTestMode) console.log(`🧪 測試模式：只抓「${testKeyword}」（資料將標記為 is_test=true，不影響主列表）\n`);
   else console.log('');
   const keywords = isTestMode ? [testKeyword] : await fetchKeywords();
   console.log(`🔑 關鍵字清單: ${keywords.join('、')}\n`);
@@ -146,7 +145,6 @@ async function main() {
           const usernameEl = el.querySelector('a[href*="/@"]');
           const href = usernameEl ? usernameEl.getAttribute('href') || '' : '';
           const username = clean(href).replace(/.*\/@/, '@').split('?')[0].split('/')[0];
-
           // 抓文章直連 URL（格式通常是 /@username/post/XXXXX）
           const postLinkEl = el.querySelector('a[href*="/post/"]');
           let postUrl = '';
@@ -156,7 +154,6 @@ async function main() {
               ? rawHref
               : 'https://www.threads.com' + rawHref.split('?')[0];
           }
-
           const timeEl = el.querySelector('time');
           const timeStr = timeEl
             ? clean(timeEl.getAttribute('datetime') || timeEl.innerText || '')
@@ -175,12 +172,10 @@ async function main() {
         return results;
       });
       console.log(`   找到 ${posts.length} 篇貼文`);
-
       // 過濾非中文文章
       const filteredPosts = posts.filter(p => isChinesePost(p.text));
       const skipped = posts.length - filteredPosts.length;
       if (skipped > 0) console.log(`   🈲 過濾掉 ${skipped} 篇非中文貼文`);
-
       if (filteredPosts.length > 0) {
         const rows = filteredPosts.map(p => ({
           keyword,
@@ -189,16 +184,20 @@ async function main() {
           post_text: p.text || '',
           post_url: p.post_url || null,
           search_rank: p.search_rank || null,
-          batch_id: batchId
+          batch_id: batchId,
+          is_test: isTestMode   // ← 測試模式標記，正式抓取為 false
         }));
         const result = await writeToSupabase(rows);
         if (result.success) {
-          console.log(`   ✅ 已寫入 Supabase: ${result.count} 筆`);
+          console.log(`   ✅ 已寫入 Supabase: ${result.count} 筆${isTestMode ? '（測試資料，可在 Dashboard 預覽後刪除）' : ''}`);
           totalCount += result.count;
         } else {
           console.log(`   ❌ 寫入失敗: ${result.error}`);
         }
-        await updateKeywordStats(keyword, filteredPosts.length);
+        // 正式模式才更新關鍵字統計
+        if (!isTestMode) {
+          await updateKeywordStats(keyword, filteredPosts.length);
+        }
       }
       summary[keyword] = posts.length;
     } catch (e) {
