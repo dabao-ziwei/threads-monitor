@@ -39,7 +39,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 <body>
 
 <div class="header">
-  <h2>Threads 爆文指揮中心 <small style="font-size: 12px; color: var(--muted);">v1.5.0</small></h2>
+  <h2>Threads 爆文指揮中心 <small style="font-size: 12px; color: var(--muted);">v1.6.0</small></h2>
   <div style="display: flex; gap: 10px;">
     <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
     <button class="btn" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
@@ -77,7 +77,6 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 <div id="panel-myposts" class="panel"><div id="myPosts"></div></div>
 
 <script>
-// ── v1.5.0 核心函數：數字萬位化 ──
 function nF(num) {
   if (!num || isNaN(num)) return 0;
   if (num >= 10000) {
@@ -122,8 +121,22 @@ async function loadData() {
     .order('scraped_at', { ascending: false })
     .limit(100);
 
-  const market = posts ? posts.filter(p => activeKeywords.includes(p.keyword) && p.keyword !== '__my_posts__') : [];
-  const myPosts = posts ? posts.filter(p => p.keyword === '__my_posts__') : [];
+  if (!posts) return;
+
+  // ── v1.6.0 核心修正：前端 Map 去重機制 ──
+  // 透過 Map 以 post_url 為鍵值，後出的重複資料會被略過，確保畫面唯一性
+  const uniquePostsMap = new Map();
+  posts.forEach(p => {
+    // 標準化 URL 再次過濾，確保萬無一失
+    const normalizedUrl = p.post_url.split('?')[0];
+    if (!uniquePostsMap.has(normalizedUrl)) {
+      uniquePostsMap.set(normalizedUrl, p);
+    }
+  });
+  const uniquePosts = Array.from(uniquePostsMap.values());
+
+  const market = uniquePosts.filter(p => activeKeywords.includes(p.keyword) && p.keyword !== '__my_posts__');
+  const myPosts = uniquePosts.filter(p => p.keyword === '__my_posts__');
 
   const renderPost = (p, isMine) => `
     <div class="post-card">
