@@ -1,162 +1,140 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Threads 爆文指揮中心</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3a3R6bHhsZHVxeWp5b29sZ3JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMjYxNDksImV4cCI6MjA4ODcwMjE0OX0.kSCvE4tGJsxtqzjIZh4O1WVL5-oMCZYUixLRAkxfJws';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-</script>
-<style>
-  :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; --bright:#ffffff; --claude:#d97757; --gemini:#4b8bf5; }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
-  body { background: var(--bg); color: var(--text); overflow-x: hidden; }
-  .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 32px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
-  .drawer { position: fixed; right: -400px; top: 0; width: 400px; height: 100%; background: var(--card); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.5); transition: 0.3s; z-index: 100; padding: 30px; overflow-y: auto; }
-  .drawer.open { right: 0; }
-  .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 90; }
-  .drawer-overlay.open { display: block; }
-  .tabs { display: flex; gap: 10px; margin: 20px 32px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-  .tab-btn { background: transparent; border: none; color: var(--muted); font-size: 16px; font-weight: bold; cursor: pointer; padding: 10px 20px; border-radius: 8px; }
-  .tab-btn.active { color: var(--bg); background: var(--accent); }
-  .panel { display: none; padding: 0 32px; }
-  .panel.active { display: block; }
-  .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 25px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
-  .post-left { padding: 24px; border-right: 1px solid var(--border); }
-  .post-right { padding: 24px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; }
-  .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-  .stats-row { margin-top: 15px; display: flex; gap: 15px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
-  .stats-val { color: var(--accent); font-weight: bold; }
-  .diagnosis-box { flex: 1; min-height: 120px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-size: 14px; line-height: 1.6; margin-top: 15px; position: relative; overflow-y: auto; color: #bbb; }
-  .diagnosis-box.analyzing { animation: pulse 2s infinite; border-color: var(--accent); }
-  @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-  .note-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 10px; font-size: 13px; resize: none; }
-  .btn-group { display: flex; gap: 10px; margin-top: 15px; }
-  .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; border: 1px solid var(--border); }
-  .btn-claude { background: var(--claude); color: white; border: none; flex: 1; }
-  .btn-gemini { background: var(--gemini); color: white; border: none; flex: 1; }
-  .btn-primary { background: var(--accent); color: var(--bg); border: none; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大寶老師 - Threads 戰略儀表板 v1.9.2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        /* 自定義捲軸樣式，讓介面更簡潔專業 */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #1f2937; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        /* 鎖定全域，防止頁面跳動 */
+        body { overflow: hidden; height: 100vh; }
+    </style>
 </head>
-<body>
+<body class="bg-gray-900 text-gray-100 font-sans flex flex-col">
 
-<div class="header">
-  <h2>Threads 戰略指揮部 <small style="font-size: 12px; color: var(--muted);">v1.8.5</small></h2>
-  <div style="display: flex; gap: 10px;">
-    <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
-    <button class="btn" style="background:var(--card2); color:white;" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
-  </div>
-</div>
-
-<div id="notice" class="notice" style="padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px;"></div>
-
-<div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
-<div class="drawer" id="drawer">
-  <h3>⚙️ 關鍵字戰情室</h3>
-  <div style="margin: 20px 0;">
-    <input type="text" id="newKw" placeholder="輸入搜尋詞..." style="width:100%; padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
-    <button class="btn btn-primary" style="width:100%; margin-top: 10px;" onclick="scoutKeyword()">🕵️ 開始偵查</button>
-  </div>
-  <div id="scoutResult" style="margin-bottom:20px; display:none; background:#000; padding:15px; border-radius:8px; border:1px dashed var(--accent);"></div>
-  <h4>📋 監控名單</h4>
-  <div id="kwList" style="margin-top: 15px;"></div>
-</div>
-
-<div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('market')" id="btn-market">📊 市場情報</button>
-  <button class="tab-btn" onclick="switchTab('myposts')" id="btn-myposts">👤 我的覆盤</button>
-</div>
-
-<div id="panel-market" class="panel active"><div id="marketPosts"></div></div>
-<div id="panel-myposts" class="panel"><div id="myPosts"></div></div>
-
-<script>
-function nF(num) {
-  if (!num || isNaN(num)) return 0;
-  if (num >= 10000) {
-    const val = num / 10000;
-    return (val % 1 === 0 ? val : val.toFixed(1)) + ' 萬';
-  }
-  return num.toLocaleString();
-}
-
-async function loadData() {
-  const { data: kws } = await sb.from('monitored_keywords').select('*');
-  const activeKeywords = (kws || []).map(k => k.keyword);
-  const { data: posts } = await sb.from('threads_posts').select('*').eq('is_test', false).order('scraped_at', { ascending: false }).limit(100);
-  if (!posts) return;
-
-  const uniquePostsMap = new Map();
-  posts.forEach(p => {
-    const finger = `${p.username}_${p.post_text.trim()}`;
-    if (!uniquePostsMap.has(finger)) uniquePostsMap.set(finger, p);
-  });
-  const finalPosts = Array.from(uniquePostsMap.values());
-
-  const renderPost = (p) => `
-    <div class="post-card">
-      <div class="post-left">
-        <div class="meta">
-          <strong style="color:var(--accent)">@${p.username}</strong>
-          <span style="background:var(--card2); padding:2px 6px; border-radius:4px;">${p.keyword}</span>
-          <span>${p.post_time ? p.post_time.split('T')[0] : ''}</span>
+    <header class="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center shrink-0 shadow-lg z-10">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">🔮</span>
+            <h1 class="text-xl font-bold tracking-wider text-blue-400">大寶老師 Threads 戰略儀表板</h1>
         </div>
-        <p style="white-space:pre-wrap; font-size:14px; line-height:1.7; color:#ddd;">${p.post_text}</p>
-        <div class="stats-row">
-          <span>👀 <span class="stats-val">${nF(p.views)}</span> 瀏覽</span>
-          <span>❤️ <span class="stats-val">${nF(p.likes)}</span> 讚</span>
-          <span>💬 <span class="stats-val">${nF(p.comments)}</span> 留言</span>
+        <div class="flex space-x-3">
+            <input id="keywordInput" type="text" placeholder="搜尋關鍵字..." class="bg-gray-700 px-4 py-2 rounded text-sm border border-gray-600 outline-none focus:border-blue-500 transition-all">
+            <button onclick="sendTask('scout')" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded text-sm font-bold transition-all shadow-md active:scale-95">發動偵查</button>
         </div>
-      </div>
-      <div class="post-right">
-        <span style="font-size:11px; color:var(--muted); margin-bottom:5px;">大寶老師觀點筆記</span>
-        <textarea class="note-input" rows="2" placeholder="在此輸入您的觀察..." onblur="updateNote('${p.id}', this.value)">${p.user_notes || ''}</textarea>
-        <div class="diagnosis-box" id="diag-${p.id}">
-          ${p.ai_diagnosis ? `<strong>[${p.diagnosis_provider}] 診斷：</strong><br>${p.ai_diagnosis.replace(/\n/g, '<br>')}` : '<span style="color:var(--muted)">尚未進行分析。</span>'}
-        </div>
-        <div class="btn-group">
-          <button class="btn btn-claude" onclick="analyzePost('${p.id}', 'Claude')">✨ Claude 診斷</button>
-          <button class="btn btn-gemini" onclick="analyzePost('${p.id}', 'Gemini')">💎 Gemini 解析</button>
-        </div>
-      </div>
-    </div>`;
+    </header>
 
-  document.getElementById('marketPosts').innerHTML = finalPosts.filter(p => activeKeywords.includes(p.keyword) && p.keyword !== '__my_posts__').map(renderPost).join('');
-  document.getElementById('myPosts').innerHTML = finalPosts.filter(p => p.keyword === '__my_posts__').map(renderPost).join('');
-}
+    <main class="flex-1 flex overflow-hidden p-4 gap-4 bg-gray-950">
+        
+        <section class="w-1/3 flex flex-col bg-gray-800 rounded-xl border border-gray-700 shadow-xl overflow-hidden">
+            <div class="p-3 bg-gray-700/50 text-sm font-bold border-b border-gray-700 flex items-center gap-2">
+                <span>📊 爆文庫存</span>
+                <span id="postCount" class="bg-blue-900 text-blue-200 text-xs px-2 py-0.5 rounded-full">0</span>
+            </div>
+            <div id="postList" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-3">
+                <div class="text-gray-500 text-center py-10 italic">載入資料庫中...</div>
+            </div>
+        </section>
 
-async function analyzePost(postId, provider) {
-  const box = document.getElementById(`diag-${postId}`);
-  box.classList.add('analyzing');
-  box.innerHTML = `<div style="color:var(--accent)">⏳ 正在派送指令給家中哨兵，請候命...</div>`;
+        <section class="w-2/3 flex flex-col gap-4 overflow-hidden">
+            
+            <div class="h-[35%] bg-gray-800 rounded-xl border border-gray-700 shadow-xl flex flex-col overflow-hidden">
+                <div class="p-3 bg-gray-700/50 text-sm font-bold flex justify-between items-center border-b border-gray-700">
+                    <span class="flex items-center gap-2">📝 原文內容 & 老師筆記</span>
+                    <button onclick="saveNotes()" class="text-xs bg-green-600 hover:bg-green-700 px-3 py-1 rounded transition-colors shadow">儲存更新</button>
+                </div>
+                <div class="flex-1 flex gap-4 p-4 overflow-hidden">
+                    <div id="currentPostContent" class="w-1/2 overflow-y-auto custom-scroll text-gray-300 leading-relaxed text-sm whitespace-pre-wrap border-r border-gray-700 pr-4">
+                        請先從左側選擇貼文...
+                    </div>
+                    <div class="w-1/2 flex flex-col">
+                        <textarea id="userNotes" placeholder="在這裡記錄您對此貼文的紫微觀點或行銷想法..." class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-blue-300 focus:ring-1 focus:ring-blue-500 outline-none resize-none custom-scroll"></textarea>
+                    </div>
+                </div>
+            </div>
 
-  const { data, error } = await sb.from('scrape_tasks').insert([{ 
-    task_type: 'ai_analyze', target_post_id: postId, target_keyword: provider 
-  }]).select().single();
+            <div class="flex-1 bg-gray-800 rounded-xl border border-gray-700 shadow-xl flex flex-col overflow-hidden">
+                <div class="p-3 bg-gray-700/50 text-sm font-bold flex justify-between items-center border-b border-gray-700">
+                    <div class="flex items-center gap-2">
+                        <span class="text-blue-400">✨ Claude 4.6 戰略診斷</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="sendTask('ai_analyze', 'Claude')" class="text-xs bg-blue-600 hover:bg-blue-500 px-4 py-1 rounded-full transition-all active:scale-95 shadow-lg">發動 AI 診斷</button>
+                    </div>
+                </div>
+                <div id="aiDiagnosis" class="flex-1 overflow-y-auto custom-scroll p-6 bg-gray-900/30">
+                    <div class="text-gray-500 italic">尚未發動分析，請點擊上方按鈕...</div>
+                </div>
+            </div>
 
-  if (error) return box.innerHTML = "❌ 任務發送失敗";
+        </section>
+    </main>
 
-  const channel = sb.channel('ai-'+data.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${data.id}` }, (p) => {
-    if (p.new.status === 'completed') {
-        box.classList.remove('analyzing');
-        loadData();
-        sb.removeChannel(channel);
-    }
-  }).subscribe();
-}
+    <script>
+        // 請在此處填入您的 Supabase 設定
+        const supabase = netlify.createClient('https://uwktzlxlduqyjyoolgrs.supabase.co', '您的KEY');
 
-async function updateNote(postId, val) { await sb.from('threads_posts').update({ user_notes: val }).eq('id', postId); }
-function toggleDrawer(open) { document.getElementById('drawer').classList.toggle('open', open); document.getElementById('overlay').classList.toggle('open', open); }
-function switchTab(tab) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`panel-${tab}`).classList.add('active');
-  document.getElementById(`btn-${tab}`).classList.add('active');
-}
-loadData();
-</script>
+        async function loadPosts() {
+            const { data, error } = await supabase.from('threads_posts').select('*').order('views', { ascending: false });
+            if (error) return;
+            const list = document.getElementById('postList');
+            document.getElementById('postCount').innerText = data.length;
+            list.innerHTML = data.map(post => `
+                <div onclick='selectPost(${JSON.stringify(post).replace(/'/g, "&apos;")})' 
+                     class="p-4 bg-gray-700 hover:bg-gray-600 rounded-lg cursor-pointer border border-transparent hover:border-blue-500 transition-all group">
+                    <div class="text-xs text-gray-400 mb-1 flex justify-between">
+                        <span>👁️ ${post.views}</span>
+                        <span class="text-blue-400">${post.diagnosis_provider ? '✅ 已診斷' : ''}</span>
+                    </div>
+                    <div class="text-sm line-clamp-2 text-gray-200 group-hover:text-white transition-colors">${post.post_text}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectPost(post) {
+            window.currentPostId = post.id;
+            document.getElementById('currentPostContent').innerText = post.post_text;
+            document.getElementById('userNotes').value = post.user_notes || '';
+            
+            const diagnosisBox = document.getElementById('aiDiagnosis');
+            if (post.ai_diagnosis) {
+                diagnosisBox.innerHTML = `
+                    <div class="mb-4 text-[10px] text-blue-500 font-mono uppercase tracking-widest border-b border-blue-900/30 pb-1">AI STRATEGIC REPORT [${post.diagnosis_provider}]</div>
+                    <div class="text-gray-200 leading-loose whitespace-pre-wrap text-[15px]">${post.ai_diagnosis}</div>
+                `;
+            } else {
+                diagnosisBox.innerHTML = '<div class="text-gray-500 italic">尚未發動分析...</div>';
+            }
+        }
+
+        async function sendTask(type, provider = '') {
+            if (type === 'ai_analyze' && !window.currentPostId) return alert('請先選擇一篇貼文！');
+            const keyword = document.getElementById('keywordInput').value;
+            const { error } = await supabase.from('scrape_tasks').insert({
+                task_type: type,
+                target_keyword: keyword || (provider === 'Claude' ? 'Claude' : ''),
+                target_post_id: window.currentPostId,
+                status: 'pending'
+            });
+            if (!error) alert(type === 'ai_analyze' ? '🚀 診斷指令已發送至哨兵...' : '📡 偵查指令已發送...');
+        }
+
+        async function saveNotes() {
+            if (!window.currentPostId) return;
+            const notes = document.getElementById('userNotes').value;
+            await supabase.from('threads_posts').update({ user_notes: notes }).eq('id', window.currentPostId);
+            alert('✅ 老師的觀點已存入資料庫。');
+        }
+
+        // 啟動與即時更新
+        loadPosts();
+        supabase.channel('posts_update').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'threads_posts' }, loadPosts).subscribe();
+    </script>
 </body>
 </html>
