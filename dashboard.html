@@ -11,7 +11,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 <style>
-  :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; }
+  :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; --bright:#ffffff; }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
   body { background: var(--bg); color: var(--text); overflow-x: hidden; }
   .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 32px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
@@ -31,13 +31,15 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   .kw-count { font-size: 12px; color: var(--accent); font-weight: bold; margin-left: 5px; }
   .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 15px; position: relative;}
   .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .stats-row { margin-top: 15px; display: flex; gap: 20px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 12px; }
+  .stats-val { color: var(--bright); font-weight: bold; margin-right: 4px; }
   .notice { padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h2>Threads 爆文指揮中心 <small style="font-size: 12px; color: var(--muted);">v1.4.0</small></h2>
+  <h2>Threads 爆文指揮中心 <small style="font-size: 12px; color: var(--muted);">v1.5.0</small></h2>
   <div style="display: flex; gap: 10px;">
     <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
     <button class="btn" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
@@ -75,6 +77,16 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 <div id="panel-myposts" class="panel"><div id="myPosts"></div></div>
 
 <script>
+// ── v1.5.0 核心函數：數字萬位化 ──
+function nF(num) {
+  if (!num || isNaN(num)) return 0;
+  if (num >= 10000) {
+    const val = num / 10000;
+    return (val % 1 === 0 ? val : val.toFixed(1)) + ' 萬';
+  }
+  return num.toLocaleString();
+}
+
 function toggleDrawer(open) {
   document.getElementById('drawer').classList.toggle('open', open);
   document.getElementById('overlay').classList.toggle('open', open);
@@ -104,14 +116,12 @@ async function loadData() {
       </div>
     </div>`).join('');
 
-  // 關鍵修正：增加過濾條件 !is_test 以及 關鍵字必須在名單中
   const { data: posts } = await sb.from('threads_posts')
     .select('*')
-    .eq('is_test', false) // 排除測試資料
+    .eq('is_test', false)
     .order('scraped_at', { ascending: false })
     .limit(100);
 
-  // 僅顯示目前監控中(且非測試)的內容
   const market = posts ? posts.filter(p => activeKeywords.includes(p.keyword) && p.keyword !== '__my_posts__') : [];
   const myPosts = posts ? posts.filter(p => p.keyword === '__my_posts__') : [];
 
@@ -128,7 +138,11 @@ async function loadData() {
         ${p.is_viral ? '<span style="color:var(--red);">🔥 爆文</span>' : ''}
       </div>
       <p style="white-space:pre-wrap; font-size:14px; line-height:1.6; color:#ccc;">${p.post_text}</p>
-      <div style="margin-top:12px; font-size:13px;">👀 ${p.views||0} ｜ ❤️ ${p.likes||0} ｜ 💬 ${p.comments||0}</div>
+      <div class="stats-row">
+        <span>👀 <span class="stats-val">${nF(p.views)}</span> 瀏覽</span>
+        <span>❤️ <span class="stats-val">${nF(p.likes)}</span> 讚</span>
+        <span>💬 <span class="stats-val">${nF(p.comments)}</span> 留言</span>
+      </div>
     </div>`;
 
   document.getElementById('marketPosts').innerHTML = market.map(p => renderPost(p, false)).join('');
@@ -148,8 +162,8 @@ async function scoutKeyword() {
       const res = p.new.task_result;
       resBox.innerHTML = `
         <div style="color:var(--accent); font-weight:bold; margin-bottom:5px;">📊 偵查報告：【${kw}】</div>
-        <li>即時熱度：約 ${res.total} 篇</li>
-        <li>潛在爆文：${res.viralCount} 篇</li>
+        <li>即時熱度：約 <span style="color:white">${nF(res.total)}</span> 篇</li>
+        <li>潛在爆文：<span style="color:white">${nF(res.viralCount)}</span> 篇</li>
         <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="addKeyword('${kw}')">確認加入監控清單</button>
       `;
       sb.removeChannel(channel);
