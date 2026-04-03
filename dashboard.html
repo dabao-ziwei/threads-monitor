@@ -6,9 +6,15 @@
 <title>Threads 命理情報站</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ── 核心連線資訊 ──
 const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
-const SUPABASE_KEY  = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
-(async function checkAuth() { const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); const { data: { session } } = await sb.auth.getSession(); if (!session && !sessionStorage.getItem('dabao_auth')) window.location.href = 'index.html'; })();
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3a3R6bHhsZHVxeWp5b29sZ3JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMjYxNDksImV4cCI6MjA4ODcwMjE0OX0.kSCvE4tGJsxtqzjIZh4O1WVL5-oMCZYUixLRAkxfJws';
+
+(async function checkAuth() { 
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
+    const { data: { session } } = await sb.auth.getSession(); 
+    if (!session && !sessionStorage.getItem('dabao_auth')) window.location.href = 'index.html'; 
+})();
 </script>
 <style>
   :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; }
@@ -24,7 +30,6 @@ const SUPABASE_KEY  = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
   .btn-primary { background: var(--accent); color: var(--bg); border: none; font-weight: bold; }
   .btn-danger { color: var(--red); border-color: var(--red); background: transparent; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .kw-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 15px; position: relative;}
   .post-card .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 10px; }
@@ -51,7 +56,7 @@ const SUPABASE_KEY  = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 </div>
 
 <div id="panel-market" class="panel active">
-  <div class="grid-2">
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
     <div class="card">
       <h3>🔍 關鍵字管理</h3>
       <div style="margin: 15px 0; display:flex; gap:10px;">
@@ -62,7 +67,7 @@ const SUPABASE_KEY  = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
       <div id="kwList"></div>
     </div>
   </div>
-  <h3>🔥 最新市場爆文</h3>
+  <h3 style="margin: 20px 0;">🔥 最新市場爆文</h3>
   <div id="marketPosts"></div>
 </div>
 
@@ -74,30 +79,31 @@ const SUPABASE_KEY  = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function showMsg(msg) { const n = document.getElementById('notice'); n.innerText = msg; n.style.display = 'block'; setTimeout(()=>n.style.display='none', 5000); }
+function showMsg(msg) { 
+    const n = document.getElementById('notice'); 
+    n.innerText = msg; 
+    n.style.display = 'block'; 
+    console.log(msg);
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`panel-${tab}`).classList.add('active');
   document.getElementById(`btn-${tab}`).classList.add('active');
 }
-function esc(str) { return (str||'').replace(/</g,'&lt;'); }
 
 async function loadData() {
-  // 載入關鍵字
   const { data: kws } = await sb.from('monitored_keywords').select('*').order('added_at', { ascending: false });
   document.getElementById('kwList').innerHTML = (kws||[]).map(k => `
     <div class="kw-row">
-      <span style="color:${k.is_active?'var(--text)':'var(--muted)'}">${esc(k.keyword)}</span>
-      <div>
-        <button class="btn" style="font-size:11px;" onclick="toggleKw('${k.keyword}', ${!k.is_active})">${k.is_active?'暫停':'啟用'}</button>
-      </div>
+      <span style="color:${k.is_active?'var(--text)':'var(--muted)'}">${k.keyword}</span>
+      <button class="btn" style="font-size:11px;" onclick="toggleKw('${k.keyword}', ${!k.is_active})">${k.is_active?'暫停':'啟用'}</button>
     </div>`).join('');
 
-  // 載入貼文
   const { data: posts } = await sb.from('threads_posts').select('*').order('post_time', { ascending: false }).limit(100);
-  const market = posts.filter(p => p.keyword !== '__my_posts__');
-  const myPosts = posts.filter(p => p.keyword === '__my_posts__');
+  const market = posts ? posts.filter(p => p.keyword !== '__my_posts__') : [];
+  const myPosts = posts ? posts.filter(p => p.keyword === '__my_posts__') : [];
 
   const renderPost = (p, isMine) => `
     <div class="post-card">
@@ -106,52 +112,41 @@ async function loadData() {
         <button class="btn btn-danger" style="font-size:12px;" onclick="delPost('${p.id}')">🗑️</button>
       </div>
       <div class="meta">
-        <strong style="color:var(--accent)">@${esc(p.username)}</strong>
-        <span style="background:var(--card2); padding:2px 6px; border-radius:4px;">${esc(p.keyword)}</span>
-        <span>${p.post_time ? p.post_time.split('T')[0] : '未知時間'}</span>
+        <strong style="color:var(--accent)">@${p.username}</strong>
+        <span style="background:var(--card2); padding:2px 6px; border-radius:4px;">${p.keyword}</span>
+        <span>${p.post_time ? p.post_time.split('T')[0] : ''}</span>
         ${p.is_viral ? '<span style="color:var(--red);">🔥 爆文</span>' : ''}
-        ${p.is_test ? '<span style="color:var(--green);">🧪 試抓</span>' : ''}
       </div>
-      <p style="white-space:pre-wrap; font-size:14px; line-height:1.6; color:#ccc;">${esc(p.post_text)}</p>
-      <div style="margin-top:12px; font-size:13px;">👀 ${p.views||0} ｜ ❤️ ${p.likes||0} ｜ 💬 ${p.comments||0}</div>
-      ${isMine ? `
-      <div class="ai-panel">
-        <h4>🤖 AI 爆文深度診斷</h4>
-        <div class="ai-grid">
-          <div class="ai-box"><span>🎯 核心主題</span>等待串接 AI 解析...</div>
-          <div class="ai-box"><span>🔥 鉤子結構</span>等待串接 AI 解析...</div>
-          <div class="ai-box" style="grid-column: span 2;"><span>💡 優化建議</span>下個階段即可在此看見自動分析！</div>
-        </div>
-      </div>` : ''}
+      <p style="white-space:pre-wrap; font-size:14px; line-height:1.6; color:#ccc;">${p.post_text}</p>
+      ${isMine ? `<div class="ai-panel"><h4>🤖 AI 爆文診斷</h4><div class="ai-grid"><div class="ai-box"><span>🎯 核心主題</span>等待解析...</div><div class="ai-box"><span>🔥 鉤子結構</span>等待解析...</div></div></div>` : ''}
     </div>`;
 
   document.getElementById('marketPosts').innerHTML = market.map(p => renderPost(p, false)).join('');
   document.getElementById('myPosts').innerHTML = myPosts.map(p => renderPost(p, true)).join('');
 }
 
-async function addKeyword() {
-  const kw = document.getElementById('newKw').value.trim(); if(!kw) return;
-  await sb.from('monitored_keywords').insert([{ keyword: kw }]); loadData(); document.getElementById('newKw').value = '';
-}
-async function toggleKw(kw, active) { await sb.from('monitored_keywords').update({ is_active: active }).eq('keyword', kw); loadData(); }
-async function delPost(id) { await sb.from('threads_posts').delete().eq('id', id); loadData(); }
-
-async function testKeyword() {
-  const kw = document.getElementById('newKw').value.trim(); if(!kw) return alert('請先輸入關鍵字');
-  triggerTask('test_search', kw);
-}
-
-// 呼叫哨兵
 async function triggerTask(type, kw = null) {
-  showMsg('⏳ 傳送指令至家中主機...');
-  const { data: task } = await sb.from('scrape_tasks').insert([{ task_type: type, target_keyword: kw }]).select().single();
+  showMsg('⏳ 正在發送指令至資料庫...');
+  const { data, error } = await sb.from('scrape_tasks').insert([{ task_type: type, target_keyword: kw, status: 'pending' }]).select();
   
+  if (error) {
+      showMsg('❌ 發送失敗：' + error.message);
+      return;
+  }
+  
+  showMsg('✅ 指令已送達！請觀察桌機 CMD 視窗。');
+  
+  const task = data[0];
   const channel = sb.channel('task-'+task.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${task.id}` }, async (p) => {
-    if (p.new.status === 'processing') showMsg('⚡ 家中主機已喚醒，正在抓取中...');
-    else if (p.new.status === 'failed_busy') { showMsg('⛔ 主機回報：有其他任務正在執行，請稍後。'); sb.removeChannel(channel); }
-    else if (p.new.status === 'completed') { showMsg('✅ 任務完成！刷新資料...'); await loadData(); sb.removeChannel(channel); }
+    if (p.new.status === 'processing') showMsg('⚡ 主機已喚醒，正在抓取中...');
+    else if (p.new.status === 'completed') { showMsg('🎉 抓取完成！刷新資料中...'); await loadData(); sb.removeChannel(channel); }
   }).subscribe();
 }
+
+async function addKeyword() { const kw = document.getElementById('newKw').value; await sb.from('monitored_keywords').insert([{ keyword: kw }]); loadData(); }
+async function toggleKw(kw, active) { await sb.from('monitored_keywords').update({ is_active: active }).eq('keyword', kw); loadData(); }
+async function delPost(id) { await sb.from('threads_posts').delete().eq('id', id); loadData(); }
+function testKeyword() { triggerTask('test_search', document.getElementById('newKw').value); }
 
 loadData();
 </script>
