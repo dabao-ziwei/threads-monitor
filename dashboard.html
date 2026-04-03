@@ -15,47 +15,36 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
   body { background: var(--bg); color: var(--text); overflow-x: hidden; }
   .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 32px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
-  
-  /* 側邊管理抽屜 */
   .drawer { position: fixed; right: -400px; top: 0; width: 400px; height: 100%; background: var(--card); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.5); transition: 0.3s; z-index: 100; padding: 30px; overflow-y: auto; }
   .drawer.open { right: 0; }
   .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 90; }
   .drawer-overlay.open { display: block; }
-
   .tabs { display: flex; gap: 10px; margin: 20px 32px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
   .tab-btn { background: transparent; border: none; color: var(--muted); font-size: 16px; font-weight: bold; cursor: pointer; padding: 10px 20px; border-radius: 8px; }
   .tab-btn.active { color: var(--bg); background: var(--accent); }
   .panel { display: none; padding: 0 32px; }
   .panel.active { display: block; }
-
-  /* 雙欄卡片佈局 */
   .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 25px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
   .post-left { padding: 24px; border-right: 1px solid var(--border); }
   .post-right { padding: 24px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; }
-  
   .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 12px; }
   .stats-row { margin-top: 15px; display: flex; gap: 15px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
   .stats-val { color: var(--accent); font-weight: bold; }
-
-  /* 診斷區樣式 */
   .diagnosis-box { flex: 1; min-height: 120px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-size: 14px; line-height: 1.6; margin-top: 15px; position: relative; overflow-y: auto; color: #bbb; }
   .diagnosis-box.analyzing { animation: pulse 2s infinite; border-color: var(--accent); }
   @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-  
   .note-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 10px; font-size: 13px; resize: none; }
   .btn-group { display: flex; gap: 10px; margin-top: 15px; }
   .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; border: 1px solid var(--border); }
   .btn-claude { background: var(--claude); color: white; border: none; flex: 1; }
   .btn-gemini { background: var(--gemini); color: white; border: none; flex: 1; }
   .btn-primary { background: var(--accent); color: var(--bg); border: none; }
-  
-  .status-tag { font-size: 10px; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: var(--card2); color: var(--muted); margin-bottom: 8px; display: inline-block; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h2>Threads 戰略指揮部 <small style="font-size: 12px; color: var(--muted);">v1.8.0</small></h2>
+  <h2>Threads 戰略指揮部 <small style="font-size: 12px; color: var(--muted);">v1.8.5</small></h2>
   <div style="display: flex; gap: 10px;">
     <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
     <button class="btn" style="background:var(--card2); color:white;" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
@@ -97,22 +86,7 @@ function nF(num) {
 async function loadData() {
   const { data: kws } = await sb.from('monitored_keywords').select('*');
   const activeKeywords = (kws || []).map(k => k.keyword);
-  
-  // 關鍵字統計讀取
-  const { data: stats } = await sb.from('keyword_stats').select('*');
-  const statsMap = Object.fromEntries((stats||[]).map(s => [s.keyword, s.post_count]));
-
-  document.getElementById('kwList').innerHTML = (kws||[]).map(k => `
-    <div class="kw-item" style="display:flex; justify-content:space-between; align-items:center; background:var(--card2); padding:10px; border-radius:8px; margin-bottom:8px;">
-      <span>${k.keyword} <small style="color:var(--accent)">(${statsMap[k.keyword] || 0})</small></span>
-      <button class="btn" style="font-size:11px; padding:2px 6px;" onclick="delKeyword('${k.keyword}')">🗑️</button>
-    </div>`).join('');
-
-  const { data: posts } = await sb.from('threads_posts')
-    .select('*')
-    .eq('is_test', false)
-    .order('scraped_at', { ascending: false }).limit(100);
-
+  const { data: posts } = await sb.from('threads_posts').select('*').eq('is_test', false).order('scraped_at', { ascending: false }).limit(100);
   if (!posts) return;
 
   const uniquePostsMap = new Map();
@@ -129,7 +103,6 @@ async function loadData() {
           <strong style="color:var(--accent)">@${p.username}</strong>
           <span style="background:var(--card2); padding:2px 6px; border-radius:4px;">${p.keyword}</span>
           <span>${p.post_time ? p.post_time.split('T')[0] : ''}</span>
-          ${p.is_viral ? '<span style="color:var(--red);">🔥 爆文</span>' : ''}
         </div>
         <p style="white-space:pre-wrap; font-size:14px; line-height:1.7; color:#ddd;">${p.post_text}</p>
         <div class="stats-row">
@@ -137,20 +110,16 @@ async function loadData() {
           <span>❤️ <span class="stats-val">${nF(p.likes)}</span> 讚</span>
           <span>💬 <span class="stats-val">${nF(p.comments)}</span> 留言</span>
         </div>
-        <div style="margin-top:15px;"><a href="${p.post_url}" target="_blank" class="btn" style="text-decoration:none; display:inline-block;">🔗 開啟原文</a></div>
       </div>
-      
       <div class="post-right">
-        <span class="status-tag">大寶老師觀點筆記</span>
-        <textarea class="note-input" rows="3" placeholder="在此輸入您的直覺或觀察..." onblur="updateNote('${p.id}', this.value)">${p.user_notes || ''}</textarea>
-        
+        <span style="font-size:11px; color:var(--muted); margin-bottom:5px;">大寶老師觀點筆記</span>
+        <textarea class="note-input" rows="2" placeholder="在此輸入您的觀察..." onblur="updateNote('${p.id}', this.value)">${p.user_notes || ''}</textarea>
         <div class="diagnosis-box" id="diag-${p.id}">
-          ${p.ai_diagnosis ? `<strong>[${p.diagnosis_provider}] 診斷結果：</strong><br>${p.ai_diagnosis.replace(/\n/g, '<br>')}` : '<span style="color:var(--muted)">尚未進行 AI 診斷。請選擇引擎開始分析。</span>'}
+          ${p.ai_diagnosis ? `<strong>[${p.diagnosis_provider}] 診斷：</strong><br>${p.ai_diagnosis.replace(/\n/g, '<br>')}` : '<span style="color:var(--muted)">尚未進行分析。</span>'}
         </div>
-        
         <div class="btn-group">
-          <button class="btn btn-claude" onclick="analyzePost('${p.id}', 'Claude')">✨ Claude 深度診斷</button>
-          <button class="btn btn-gemini" onclick="analyzePost('${p.id}', 'Gemini')">💎 Gemini 邏輯解析</button>
+          <button class="btn btn-claude" onclick="analyzePost('${p.id}', 'Claude')">✨ Claude 診斷</button>
+          <button class="btn btn-gemini" onclick="analyzePost('${p.id}', 'Gemini')">💎 Gemini 解析</button>
         </div>
       </div>
     </div>`;
@@ -159,32 +128,27 @@ async function loadData() {
   document.getElementById('myPosts').innerHTML = finalPosts.filter(p => p.keyword === '__my_posts__').map(renderPost).join('');
 }
 
-// ── v1.8.0 核心分析邏輯 ──
 async function analyzePost(postId, provider) {
   const box = document.getElementById(`diag-${postId}`);
   box.classList.add('analyzing');
-  box.innerHTML = `<div style="color:var(--accent)">⏳ ${provider} 正在深度解析中...</div><div style="font-size:11px; color:var(--muted); margin-top:5px;">正在結合數據與老師觀點進行推演...</div>`;
+  box.innerHTML = `<div style="color:var(--accent)">⏳ 正在派送指令給家中哨兵，請候命...</div>`;
 
-  // 此處預留給大寶老師介接 Claude/Gemini API 的 Function
-  // 目前先模擬回傳效果，確保 UI 動態正常
-  setTimeout(async () => {
-    const mockResult = `這篇文章之所以成功，核心在於利用了情緒的「鉤子」。透過數據觀察，其轉發比極高，代表內容觸發了讀者的共鳴。建議未來在「定盤」相關主題時，可延續此種敘事節奏。`;
-    
-    await sb.from('threads_posts').update({ 
-      ai_diagnosis: mockResult, 
-      diagnosis_provider: provider 
-    }).eq('id', postId);
-    
-    box.classList.remove('analyzing');
-    loadData(); // 重新整理顯示結果
-  }, 3000);
+  const { data, error } = await sb.from('scrape_tasks').insert([{ 
+    task_type: 'ai_analyze', target_post_id: postId, target_keyword: provider 
+  }]).select().single();
+
+  if (error) return box.innerHTML = "❌ 任務發送失敗";
+
+  const channel = sb.channel('ai-'+data.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${data.id}` }, (p) => {
+    if (p.new.status === 'completed') {
+        box.classList.remove('analyzing');
+        loadData();
+        sb.removeChannel(channel);
+    }
+  }).subscribe();
 }
 
-async function updateNote(postId, val) {
-  await sb.from('threads_posts').update({ user_notes: val }).eq('id', postId);
-}
-
-// 其餘 UI 控制邏輯 (Drawer, Tabs 等) 保持 v1.7.0 穩定版本
+async function updateNote(postId, val) { await sb.from('threads_posts').update({ user_notes: val }).eq('id', postId); }
 function toggleDrawer(open) { document.getElementById('drawer').classList.toggle('open', open); document.getElementById('overlay').classList.toggle('open', open); }
 function switchTab(tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -192,12 +156,6 @@ function switchTab(tab) {
   document.getElementById(`panel-${tab}`).classList.add('active');
   document.getElementById(`btn-${tab}`).classList.add('active');
 }
-async function delKeyword(kw) { if(confirm(`確定停止監控【${kw}】？`)) { await sb.from('monitored_keywords').delete().eq('keyword', kw); loadData(); } }
-async function triggerTask(type) { 
-  const { error } = await sb.from('scrape_tasks').insert([{ task_type: type }]);
-  if (!error) { document.getElementById('notice').innerText = '✅ 指令已送達哨兵。'; document.getElementById('notice').style.display='block'; }
-}
-
 loadData();
 </script>
 </body>
