@@ -8,18 +8,20 @@
 <script>
 const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3a3R6bHhsZHVxeWp5b29sZ3JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMjYxNDksImV4cCI6MjA4ODcwMjE0OX0.kSCvE4tGJsxtqzjIZh4O1WVL5-oMCZYUixLRAkxfJws';
-
-(async function checkAuth() { 
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
-    const { data: { session } } = await sb.auth.getSession(); 
-    if (!session && !sessionStorage.getItem('dabao_auth')) window.location.href = 'index.html'; 
-})();
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 <style>
   :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
-  body { background: var(--bg); color: var(--text); }
-  .header { display: flex; justify-content: space-between; padding: 20px 32px; background: var(--card); border-bottom: 1px solid var(--border); }
+  body { background: var(--bg); color: var(--text); overflow-x: hidden; }
+  .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 32px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+  
+  /* 抽屜樣式 */
+  .drawer { position: fixed; right: -400px; top: 0; width: 400px; height: 100%; background: var(--card); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.5); transition: 0.3s; z-index: 100; padding: 30px; overflow-y: auto; }
+  .drawer.open { right: 0; }
+  .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 90; }
+  .drawer-overlay.open { display: block; }
+
   .tabs { display: flex; gap: 10px; margin: 20px 32px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
   .tab-btn { background: transparent; border: none; color: var(--muted); font-size: 16px; font-weight: bold; cursor: pointer; padding: 10px 20px; border-radius: 8px; }
   .tab-btn.active { color: var(--bg); background: var(--accent); }
@@ -28,78 +30,87 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
   .btn { padding: 8px 16px; background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
   .btn-primary { background: var(--accent); color: var(--bg); border: none; font-weight: bold; }
   .btn-danger { color: var(--red); border-color: var(--red); background: transparent; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-  .kw-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  
+  .kw-item { background: var(--card2); padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); }
+  .kw-info { flex: 1; }
+  .kw-count { font-size: 12px; color: var(--accent); font-weight: bold; margin-left: 5px; }
   .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 15px; position: relative;}
-  .post-card .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 10px; }
-  .ai-panel { background: #1f1b2c; border: 1px solid #3d2b6b; border-radius: 8px; padding: 15px; margin-top: 15px; }
-  .ai-panel h4 { color: #b388ff; margin-bottom: 10px; font-size: 14px; }
-  .ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .ai-box { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; font-size: 13px; }
-  .ai-box span { color: var(--muted); display: block; margin-bottom: 4px; font-size: 11px; }
-  .notice { padding: 15px; background: var(--card2); margin: 0 32px 20px; border-left: 4px solid var(--accent); display: none; border-radius: 8px; position: sticky; top: 10px; z-index: 100; }
+  .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .notice { padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h2>Threads 作戰指揮中心</h2>
-  <div><button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button></div>
+  <h2>Threads 爆文指揮中心 <small style="font-size: 12px; color: var(--muted);">v1.3.0</small></h2>
+  <div style="display: flex; gap: 10px;">
+    <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
+    <button class="btn" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
+  </div>
 </div>
 
 <div id="notice" class="notice"></div>
 
-<div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('market')" id="btn-market">📊 市場爆文情報</button>
-  <button class="tab-btn" onclick="switchTab('myposts')" id="btn-myposts">👤 我的專屬覆盤 (AI)</button>
-</div>
-
-<div id="panel-market" class="panel active">
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-    <div class="card">
-      <h3>🔍 關鍵字管理</h3>
-      <div style="margin: 15px 0; display:flex; gap:10px;">
-        <input type="text" id="newKw" placeholder="輸入新關鍵字..." style="flex:1; padding:8px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
-        <button class="btn" onclick="addKeyword()">加入排程</button>
-        <button class="btn" onclick="testKeyword()">先試抓 (5篇)</button>
-      </div>
-      <div id="kwList"></div>
-    </div>
+<div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
+<div class="drawer" id="drawer">
+  <div style="display: flex; justify-content: space-between; margin-bottom: 25px;">
+    <h3>⚙️ 關鍵字戰情室</h3>
+    <button class="btn" onclick="toggleDrawer(false)">✕</button>
   </div>
-  <h3 style="margin: 20px 0;">🔥 最新市場爆文</h3>
-  <div id="marketPosts"></div>
+  
+  <div class="card" style="margin-bottom: 25px;">
+    <h4>🆕 新增監控</h4>
+    <div style="display: flex; gap: 8px; margin-top: 10px;">
+      <input type="text" id="newKw" placeholder="輸入關鍵字..." style="flex:1; padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
+    </div>
+    <div style="display: flex; gap: 8px; margin-top: 10px;">
+      <button class="btn btn-primary" style="flex:1" onclick="scoutKeyword()">🕵️ 市場偵查</button>
+      <button class="btn" onclick="addKeyword()">直接加入</button>
+    </div>
+    <div id="scoutResult" style="margin-top: 15px; font-size: 13px; display: none; background: #000; padding: 10px; border-radius: 6px; border: 1px dashed var(--accent);"></div>
+  </div>
+
+  <h4>📋 監控名單</h4>
+  <div id="kwList" style="margin-top: 15px;"></div>
 </div>
 
-<div id="panel-myposts" class="panel">
-  <h3>📝 我的貼文與 AI 診斷</h3>
-  <div id="myPosts"></div>
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('market')" id="btn-market">📊 市場情報</button>
+  <button class="tab-btn" onclick="switchTab('myposts')" id="btn-myposts">👤 我的覆盤</button>
 </div>
+
+<div id="panel-market" class="panel active"><div id="marketPosts"></div></div>
+<div id="panel-myposts" class="panel"><div id="myPosts"></div></div>
 
 <script>
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+function toggleDrawer(open) {
+  document.getElementById('drawer').classList.toggle('open', open);
+  document.getElementById('overlay').classList.toggle('open', open);
+}
 
 function showMsg(msg) { 
     const n = document.getElementById('notice'); 
-    n.innerText = msg; 
-    n.style.display = 'block'; 
-}
-
-function switchTab(tab) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`panel-${tab}`).classList.add('active');
-  document.getElementById(`btn-${tab}`).classList.add('active');
+    n.innerText = msg; n.style.display = 'block'; 
 }
 
 async function loadData() {
+  // 讀取關鍵字與統計
   const { data: kws } = await sb.from('monitored_keywords').select('*').order('added_at', { ascending: false });
+  const { data: stats } = await sb.from('keyword_stats').select('*');
+  const statsMap = Object.fromEntries((stats||[]).map(s => [s.keyword, s.post_count]));
+
   document.getElementById('kwList').innerHTML = (kws||[]).map(k => `
-    <div class="kw-row">
-      <span style="color:${k.is_active?'var(--text)':'var(--muted)'}">${k.keyword}</span>
-      <button class="btn" style="font-size:11px;" onclick="toggleKw('${k.keyword}', ${!k.is_active})">${k.is_active?'暫停':'啟用'}</button>
+    <div class="kw-item">
+      <div class="kw-info">
+        <span style="color:${k.is_active?'var(--text)':'var(--muted)'}">${k.keyword}</span>
+        <span class="kw-count">(${statsMap[k.keyword] || 0})</span>
+      </div>
+      <div style="display:flex; gap:5px;">
+        <button class="btn" style="font-size:11px; padding:4px 8px;" onclick="toggleKw('${k.keyword}', ${!k.is_active})">${k.is_active?'暫停':'恢復'}</button>
+        <button class="btn btn-danger" style="font-size:11px; padding:4px 8px;" onclick="delKeyword('${k.keyword}')">🗑️</button>
+      </div>
     </div>`).join('');
 
-  // 關鍵修正：改用 scraped_at 排序，確保最新抓取的試抓資料在最上面
   const { data: posts } = await sb.from('threads_posts').select('*').order('scraped_at', { ascending: false }).limit(100);
   const market = posts ? posts.filter(p => p.keyword !== '__my_posts__') : [];
   const myPosts = posts ? posts.filter(p => p.keyword === '__my_posts__') : [];
@@ -115,7 +126,6 @@ async function loadData() {
         <span style="background:var(--card2); padding:2px 6px; border-radius:4px;">${p.keyword}</span>
         <span>${p.post_time ? p.post_time.split('T')[0] : ''}</span>
         ${p.is_viral ? '<span style="color:var(--red);">🔥 爆文</span>' : ''}
-        ${p.is_test ? '<span style="color:var(--green);">🧪 試抓</span>' : ''}
       </div>
       <p style="white-space:pre-wrap; font-size:14px; line-height:1.6; color:#ccc;">${p.post_text}</p>
       <div style="margin-top:12px; font-size:13px;">👀 ${p.views||0} ｜ ❤️ ${p.likes||0} ｜ 💬 ${p.comments||0}</div>
@@ -125,36 +135,60 @@ async function loadData() {
   document.getElementById('myPosts').innerHTML = myPosts.map(p => renderPost(p, true)).join('');
 }
 
-async function triggerTask(type, kw = null) {
-  showMsg('⏳ 正在發送指令至家中主機...');
-  const { data, error } = await sb.from('scrape_tasks').insert([{ task_type: type, target_keyword: kw, status: 'pending' }]).select();
+async function scoutKeyword() {
+  const kw = document.getElementById('newKw').value.trim(); if(!kw) return;
+  const resBox = document.getElementById('scoutResult');
+  resBox.style.display = 'block'; resBox.innerHTML = '🕵️ 正在派往 Threads 偵查中...';
   
-  if (error) { showMsg('❌ 發送失敗：' + error.message); return; }
-  
-  showMsg('✅ 指令已送達！請觀察桌機 CMD 視窗。');
-  
-  const task = data[0];
-  const channel = sb.channel('task-'+task.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${task.id}` }, async (p) => {
-    if (p.new.status === 'processing') {
-        showMsg('⚡ 主機已喚醒，正在抓取中...');
-    } else if (p.new.status === 'completed') {
-        showMsg('🎉 抓取完成！等待 3 秒讓資料入庫...');
-        // 關鍵修正：加入延遲刷新，避免時間差抓不到資料
-        setTimeout(async () => {
-            await loadData();
-            showMsg('✅ 最新資料已刷新！');
-            sb.removeChannel(channel);
-        }, 3000);
+  const { data, error } = await sb.from('scrape_tasks').insert([{ task_type: 'scout', target_keyword: kw }]).select().single();
+  if (error) return resBox.innerHTML = '❌ 派發失敗';
+
+  const channel = sb.channel('scout-'+data.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${data.id}` }, (p) => {
+    if (p.new.status === 'completed' && p.new.task_result) {
+      const res = p.new.task_result;
+      resBox.innerHTML = `
+        <div style="color:var(--accent); font-weight:bold; margin-bottom:5px;">📊 偵查報告：【${kw}】</div>
+        <li>目前熱度：約 ${res.total} 篇新文</li>
+        <li>爆文潛力：${res.viralCount} 篇符合門檻</li>
+        <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="addKeyword('${kw}')">確認加入監控</button>
+      `;
+      sb.removeChannel(channel);
     }
   }).subscribe();
 }
 
-async function addKeyword() { const kw = document.getElementById('newKw').value; await sb.from('monitored_keywords').insert([{ keyword: kw }]); loadData(); }
+async function addKeyword(kw) {
+  const keyword = kw || document.getElementById('newKw').value.trim();
+  if(!keyword) return;
+  await sb.from('monitored_keywords').upsert([{ keyword, is_active: true }]);
+  document.getElementById('scoutResult').style.display = 'none';
+  loadData();
+}
+
+async function delKeyword(kw) {
+  if(!confirm(`確定要停止監控【${kw}】嗎？\n(已抓取的文章會保留)`)) return;
+  await sb.from('monitored_keywords').delete().eq('keyword', kw);
+  loadData();
+}
+
+async function triggerTask(type) {
+  showMsg('⏳ 指令發送中...');
+  const { error } = await sb.from('scrape_tasks').insert([{ task_type: type }]);
+  if (error) showMsg('❌ 失敗：' + error.message);
+  else showMsg('✅ 指令已送達家中小組。');
+}
+
 async function toggleKw(kw, active) { await sb.from('monitored_keywords').update({ is_active: active }).eq('keyword', kw); loadData(); }
 async function delPost(id) { await sb.from('threads_posts').delete().eq('id', id); loadData(); }
-function testKeyword() { triggerTask('test_search', document.getElementById('newKw').value); }
+function switchTab(tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`panel-${tab}`).classList.add('active');
+  document.getElementById(`btn-${tab}`).classList.add('active');
+}
 
 loadData();
+setInterval(loadData, 60000); // 每分鐘自動刷新一次戰況
 </script>
 </body>
 </html>
