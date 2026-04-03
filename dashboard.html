@@ -39,7 +39,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 <body>
 
 <div class="header">
-  <h2>Threads 爆文指揮中心 <small style="font-size: 12px; color: var(--muted);">v1.6.0</small></h2>
+  <h2>Threads 爆文指揮中心 <small style="font-size: 12px; color: var(--muted);">v1.7.0</small></h2>
   <div style="display: flex; gap: 10px;">
     <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
     <button class="btn" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
@@ -119,18 +119,16 @@ async function loadData() {
     .select('*')
     .eq('is_test', false)
     .order('scraped_at', { ascending: false })
-    .limit(100);
+    .limit(150);
 
   if (!posts) return;
 
-  // ── v1.6.0 核心修正：前端 Map 去重機制 ──
-  // 透過 Map 以 post_url 為鍵值，後出的重複資料會被略過，確保畫面唯一性
+  // ── v1.7.0 終極去重邏輯：以「帳號+內文」作為指紋 ──
   const uniquePostsMap = new Map();
   posts.forEach(p => {
-    // 標準化 URL 再次過濾，確保萬無一失
-    const normalizedUrl = p.post_url.split('?')[0];
-    if (!uniquePostsMap.has(normalizedUrl)) {
-      uniquePostsMap.set(normalizedUrl, p);
+    const fingerprint = `${p.username}_${p.post_text.trim()}`;
+    if (!uniquePostsMap.has(fingerprint)) {
+      uniquePostsMap.set(fingerprint, p);
     }
   });
   const uniquePosts = Array.from(uniquePostsMap.values());
@@ -166,10 +164,8 @@ async function scoutKeyword() {
   const kw = document.getElementById('newKw').value.trim(); if(!kw) return;
   const resBox = document.getElementById('scoutResult');
   resBox.style.display = 'block'; resBox.innerHTML = '🕵️ 正在偵查熱度中...';
-  
   const { data, error } = await sb.from('scrape_tasks').insert([{ task_type: 'scout', target_keyword: kw }]).select().single();
   if (error) return resBox.innerHTML = '❌ 指令失敗';
-
   const channel = sb.channel('scout-'+data.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${data.id}` }, (p) => {
     if (p.new.status === 'completed' && p.new.task_result) {
       const res = p.new.task_result;
