@@ -122,10 +122,18 @@ function switchTab(tab) {
 }
 function toggleDrawer(open) { document.getElementById('drawer').classList.toggle('open', open); document.getElementById('overlay').classList.toggle('open', open); }
 function esc(str) { return (str||'').replace(/</g,'&lt;'); }
+
+// 完美修復的數字轉換函式
 function nF(num) {
-  if (!num || isNaN(num)) return 0;
-  if (num >= 10000) return (num / 10000 % 1 === 0 ? num / 10000 : (num / 10000).toFixed(1)) + ' 萬';
-  return num.toLocaleString();
+  if (num === undefined || num === null || num === '') return 0;
+  if (typeof num === 'string' && num.includes('萬')) return num; 
+  let val = parseFloat(String(num).replace(/,/g, '')); 
+  if (isNaN(val)) return num; 
+  if (val >= 10000) {
+    let w = val / 10000;
+    return (w % 1 === 0 ? w : w.toFixed(1)) + ' 萬';
+  }
+  return val.toLocaleString();
 }
 
 async function loadData() {
@@ -147,6 +155,15 @@ async function loadData() {
     if (!uniquePostsMap.has(finger)) uniquePostsMap.set(finger, p);
   });
   const finalPosts = Array.from(uniquePostsMap.values());
+
+  // 新增：強制依照瀏覽量 (views) 由高到低排序
+  finalPosts.sort((a, b) => {
+    let viewsA = parseFloat(String(a.views || 0).replace(/,/g, ''));
+    let viewsB = parseFloat(String(b.views || 0).replace(/,/g, ''));
+    if (isNaN(viewsA)) viewsA = 0;
+    if (isNaN(viewsB)) viewsB = 0;
+    return viewsB - viewsA;
+  });
 
   const renderPost = (p) => `
     <div class="post-card">
@@ -200,14 +217,23 @@ async function testKeyword() {
   triggerTask('test_search', kw);
 }
 
+// 修復雷達計算時因為資料庫逗號造成的 NaN 錯誤
 async function calculateRadar(kw) {
   const { data: posts } = await sb.from('threads_posts').select('*').eq('keyword', kw);
   if (!posts) return;
   const limitTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
   const validPosts = posts.filter(p => p.post_time && p.post_time >= limitTime);
   const total = validPosts.length;
-  const maxViews = total > 0 ? Math.max(...validPosts.map(p => p.views || 0)) : 0;
-  const maxLikes = total > 0 ? Math.max(...validPosts.map(p => p.likes || 0)) : 0;
+  
+  const maxViews = total > 0 ? Math.max(...validPosts.map(p => {
+    let v = parseFloat(String(p.views||0).replace(/,/g, ''));
+    return isNaN(v) ? 0 : v;
+  })) : 0;
+  
+  const maxLikes = total > 0 ? Math.max(...validPosts.map(p => {
+    let l = parseFloat(String(p.likes||0).replace(/,/g, ''));
+    return isNaN(l) ? 0 : l;
+  })) : 0;
   
   document.getElementById('radarTotal').innerText = total;
   document.getElementById('radarViews').innerText = nF(maxViews);
