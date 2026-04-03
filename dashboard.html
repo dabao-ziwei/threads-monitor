@@ -6,7 +6,6 @@
 <title>Threads 命理情報站</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ── 核心連線資訊 ──
 const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3a3R6bHhsZHVxeWp5b29sZ3JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMjYxNDksImV4cCI6MjA4ODcwMjE0OX0.kSCvE4tGJsxtqzjIZh4O1WVL5-oMCZYUixLRAkxfJws';
 
@@ -38,7 +37,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
   .ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .ai-box { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; font-size: 13px; }
   .ai-box span { color: var(--muted); display: block; margin-bottom: 4px; font-size: 11px; }
-  .notice { padding: 15px; background: var(--card2); margin: 0 32px 20px; border-left: 4px solid var(--accent); display: none; }
+  .notice { padding: 15px; background: var(--card2); margin: 0 32px 20px; border-left: 4px solid var(--accent); display: none; border-radius: 8px; position: sticky; top: 10px; z-index: 100; }
 </style>
 </head>
 <body>
@@ -83,7 +82,6 @@ function showMsg(msg) {
     const n = document.getElementById('notice'); 
     n.innerText = msg; 
     n.style.display = 'block'; 
-    console.log(msg);
 }
 
 function switchTab(tab) {
@@ -101,7 +99,8 @@ async function loadData() {
       <button class="btn" style="font-size:11px;" onclick="toggleKw('${k.keyword}', ${!k.is_active})">${k.is_active?'暫停':'啟用'}</button>
     </div>`).join('');
 
-  const { data: posts } = await sb.from('threads_posts').select('*').order('post_time', { ascending: false }).limit(100);
+  // 關鍵修正：改用 scraped_at 排序，確保最新抓取的試抓資料在最上面
+  const { data: posts } = await sb.from('threads_posts').select('*').order('scraped_at', { ascending: false }).limit(100);
   const market = posts ? posts.filter(p => p.keyword !== '__my_posts__') : [];
   const myPosts = posts ? posts.filter(p => p.keyword === '__my_posts__') : [];
 
@@ -116,9 +115,10 @@ async function loadData() {
         <span style="background:var(--card2); padding:2px 6px; border-radius:4px;">${p.keyword}</span>
         <span>${p.post_time ? p.post_time.split('T')[0] : ''}</span>
         ${p.is_viral ? '<span style="color:var(--red);">🔥 爆文</span>' : ''}
+        ${p.is_test ? '<span style="color:var(--green);">🧪 試抓</span>' : ''}
       </div>
       <p style="white-space:pre-wrap; font-size:14px; line-height:1.6; color:#ccc;">${p.post_text}</p>
-      ${isMine ? `<div class="ai-panel"><h4>🤖 AI 爆文診斷</h4><div class="ai-grid"><div class="ai-box"><span>🎯 核心主題</span>等待解析...</div><div class="ai-box"><span>🔥 鉤子結構</span>等待解析...</div></div></div>` : ''}
+      <div style="margin-top:12px; font-size:13px;">👀 ${p.views||0} ｜ ❤️ ${p.likes||0} ｜ 💬 ${p.comments||0}</div>
     </div>`;
 
   document.getElementById('marketPosts').innerHTML = market.map(p => renderPost(p, false)).join('');
@@ -126,20 +126,26 @@ async function loadData() {
 }
 
 async function triggerTask(type, kw = null) {
-  showMsg('⏳ 正在發送指令至資料庫...');
+  showMsg('⏳ 正在發送指令至家中主機...');
   const { data, error } = await sb.from('scrape_tasks').insert([{ task_type: type, target_keyword: kw, status: 'pending' }]).select();
   
-  if (error) {
-      showMsg('❌ 發送失敗：' + error.message);
-      return;
-  }
+  if (error) { showMsg('❌ 發送失敗：' + error.message); return; }
   
   showMsg('✅ 指令已送達！請觀察桌機 CMD 視窗。');
   
   const task = data[0];
   const channel = sb.channel('task-'+task.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${task.id}` }, async (p) => {
-    if (p.new.status === 'processing') showMsg('⚡ 主機已喚醒，正在抓取中...');
-    else if (p.new.status === 'completed') { showMsg('🎉 抓取完成！刷新資料中...'); await loadData(); sb.removeChannel(channel); }
+    if (p.new.status === 'processing') {
+        showMsg('⚡ 主機已喚醒，正在抓取中...');
+    } else if (p.new.status === 'completed') {
+        showMsg('🎉 抓取完成！等待 3 秒讓資料入庫...');
+        // 關鍵修正：加入延遲刷新，避免時間差抓不到資料
+        setTimeout(async () => {
+            await loadData();
+            showMsg('✅ 最新資料已刷新！');
+            sb.removeChannel(channel);
+        }, 3000);
+    }
   }).subscribe();
 }
 
