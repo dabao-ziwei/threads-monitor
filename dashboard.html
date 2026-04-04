@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Threads 命理情報站</title>
+<title>Threads 命理情報站 - 戰略總部</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
@@ -15,12 +15,11 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 })();
 </script>
 <style>
-  :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; --claude:#d97757; --gemini:#4b8bf5; }
+  :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; --bright:#ffffff; --claude:#d97757; --gemini:#4b8bf5; }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
   body { background: var(--bg); color: var(--text); overflow-x: hidden; }
   .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 32px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
   
-  /* 抽屜與遮罩 */
   .drawer { position: fixed; right: -400px; top: 0; width: 400px; height: 100%; background: var(--card); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.5); transition: 0.3s; z-index: 100; padding: 30px; overflow-y: auto; }
   .drawer.open { right: 0; }
   .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 90; }
@@ -32,21 +31,21 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
   .panel { display: none; padding: 0 32px; }
   .panel.active { display: block; }
   
-  /* 文章卡片雙欄結構 */
-  .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 25px; display: grid; grid-template-columns: 1.2fr 0.8fr; overflow: hidden; min-height: 300px; }
+  /* 文章卡片結構：左右分欄 */
+  .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 25px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; min-height: 350px; }
   .post-left { padding: 24px; border-right: 1px solid var(--border); }
-  .post-right { padding: 24px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 12px; }
+  .post-right { padding: 24px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; }
   
   .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 12px; align-items: center; }
   .stats-row { margin-top: 15px; display: flex; gap: 15px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
   .stats-val { color: var(--accent); font-weight: bold; }
   
-  .diagnosis-box { flex: 1; min-height: 150px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-size: 14px; line-height: 1.6; color: #bbb; overflow-y: auto; }
+  .diagnosis-box { flex: 1; min-height: 120px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-size: 14px; line-height: 1.6; color: #bbb; overflow-y: auto; margin-top: 10px; }
   .diagnosis-box.analyzing { animation: pulse 2s infinite; border-color: var(--accent); }
-  @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+  @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
   
   .note-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 10px; font-size: 13px; resize: none; }
-  .btn-group { display: flex; gap: 10px; }
+  .btn-group { display: flex; gap: 10px; margin-top: 15px; }
   .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; border: 1px solid var(--border); transition: 0.2s; }
   .btn-claude { background: var(--claude); color: white; border: none; flex: 1; }
   .btn-gemini { background: var(--gemini); color: white; border: none; flex: 1; }
@@ -76,7 +75,7 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
   </div>
   
   <div style="margin: 15px 0; display:flex; flex-direction:column; gap:10px;">
-    <input type="text" id="newKw" placeholder="輸入關鍵字..." style="padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
+    <input type="text" id="newKw" placeholder="輸入新關鍵字..." style="padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
     <div style="display:flex; gap:10px;">
       <button class="btn" onclick="addKeyword()" style="flex:1;">加入排程</button>
       <button class="btn" onclick="testKeyword()" style="flex:1; color:var(--accent); border-color:var(--accent);">🚀 72H 探測</button>
@@ -123,10 +122,8 @@ function toggleDrawer(open) {
 function stopRadarMonitor() { if (radarMonitorTimer) { clearInterval(radarMonitorTimer); radarMonitorTimer = null; } }
 function esc(str) { return (str||'').replace(/</g,'&lt;'); }
 
-// 數字美化
 function nF(num) {
-  if (num === undefined || num === null || num === '' || num === 0) return '0';
-  if (typeof num === 'string' && num.includes('萬')) return num; 
+  if (num === undefined || num === null || num === '') return '--';
   let val = parseFloat(String(num).replace(/,/g, '')); 
   if (isNaN(val)) return num; 
   if (val >= 10000) return (val / 10000).toFixed(1) + ' 萬';
@@ -137,17 +134,18 @@ async function loadData() {
   const { data: kws } = await sb.from('monitored_keywords').select('*').order('added_at', { ascending: false });
   document.getElementById('kwList').innerHTML = (kws||[]).map(k => `
     <div class="kw-row">
-      <span style="color:${k.is_active?'var(--text)':'var(--muted)'}">${esc(k.keyword)}</span>
-      <button class="btn" style="font-size:11px; padding:4px 8px;" onclick="toggleKw('${k.keyword}', ${!k.is_active})">${k.is_active?'暫停':'啟用'}</button>
+      <span style="color:${k.is_active?'var(--text)':'var(--muted)'}; font-size:14px;">${esc(k.keyword)}</span>
+      <div style="display:flex; gap:5px;">
+        <button class="btn" style="font-size:11px; padding:4px 8px;" onclick="toggleKw('${k.keyword}', ${!k.is_active})">${k.is_active?'暫停':'啟用'}</button>
+        <button class="btn btn-delete" style="font-size:11px; padding:4px 8px;" onclick="delKeyword('${k.id}')">刪除</button>
+      </div>
     </div>`).join('');
 
-  const { data: posts } = await sb.from('threads_posts').select('*').order('scraped_at', { ascending: false }).limit(50);
+  const { data: posts } = await sb.from('threads_posts').select('*').order('scraped_at', { ascending: false }).limit(100);
   if (!posts) return;
 
   const renderPost = (p) => {
-    // 修正：處理帳號格式，避免雙重 @
     const displayUser = p.username ? (p.username.startsWith('@') ? p.username : '@' + p.username) : '@unknown';
-    
     return `
     <div class="post-card">
       <div class="post-left">
@@ -156,21 +154,22 @@ async function loadData() {
           <span style="background:var(--card2); padding:2px 6px; border-radius:4px;">${esc(p.keyword)}</span>
           <a href="${p.post_url}" target="_blank" style="color:var(--accent); text-decoration:none; margin-left:auto; font-size:12px;">🔗 原文</a>
         </div>
-        <p style="white-space:pre-wrap; font-size:14px; line-height:1.7; color:#ddd;">${esc(p.post_text)}</p>
+        <p style="white-space:pre-wrap; font-size:14px; line-height:1.7; color:#ddd; max-height: 250px; overflow-y: auto;">${esc(p.post_text)}</p>
         <div class="stats-row">
-          <span>👀 <span class="stats-val">${nF(p.views)}</span></span>
-          <span>❤️ <span class="stats-val">${nF(p.likes)}</span></span>
-          <span>💬 <span class="stats-val">${nF(p.comments)}</span></span>
+          <span>👀 <span class="stats-val">${nF(p.views)}</span> 瀏覽</span>
+          <span>❤️ <span class="stats-val">${nF(p.likes)}</span> 讚</span>
+          <span>💬 <span class="stats-val">${nF(p.comments)}</span> 留言</span>
         </div>
       </div>
       <div class="post-right">
-        <textarea class="note-input" rows="2" placeholder="輸入您的觀察..." onblur="updateNote('${p.id}', this.value)">${p.user_notes || ''}</textarea>
+        <span style="font-size:11px; color:var(--muted); margin-bottom:5px;">大寶老師觀點筆記</span>
+        <textarea class="note-input" rows="2" placeholder="輸入觀察..." onblur="updateNote('${p.id}', this.value)">${p.user_notes || ''}</textarea>
         <div class="diagnosis-box" id="diag-${p.id}">
-          ${p.ai_diagnosis ? `<strong>[${p.diagnosis_provider}] 診斷：</strong><br>${p.ai_diagnosis.replace(/\n/g, '<br>')}` : '<span style="color:var(--muted)">尚未分析。</span>'}
+          ${p.ai_diagnosis ? `<strong>[${p.diagnosis_provider}] 診斷：</strong><br>${p.ai_diagnosis.replace(/\n/g, '<br>')}` : '<span style="color:var(--muted)">尚未進行分析。</span>'}
         </div>
         <div class="btn-group">
-          <button class="btn btn-claude" onclick="analyzePost('${p.id}', 'Claude')">✨ Claude</button>
-          <button class="btn btn-gemini" onclick="analyzePost('${p.id}', 'Gemini')">💎 Gemini</button>
+          <button class="btn btn-claude" onclick="analyzePost('${p.id}', 'Claude')">✨ Claude 診斷</button>
+          <button class="btn btn-gemini" onclick="analyzePost('${p.id}', 'Gemini')">💎 Gemini 解析</button>
           <button class="btn btn-delete" style="flex:0.3" onclick="delPost('${p.id}')">🗑️</button>
         </div>
       </div>
@@ -209,11 +208,11 @@ async function triggerTask(type, kw = null) {
   showMsg('⏳ 指令發送中...');
   const { data: task } = await sb.from('scrape_tasks').insert([{ task_type: type, target_keyword: kw }]).select().single();
   const channel = sb.channel('task-'+task.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${task.id}` }, async (p) => {
-    if (p.new.status === 'completed') { showMsg('✅ 任務完成！'); await loadData(); sb.removeChannel(channel); }
+    if (p.new.status === 'completed') { showMsg('✅ 任務完成！'); loadData(); sb.removeChannel(channel); }
   }).subscribe();
 }
 
-async function delPost(id) { if(confirm('確定刪除？')) { await sb.from('threads_posts').delete().eq('id', id); loadData(); } }
+async function delPost(id) { if(confirm('刪除貼文？')) { await sb.from('threads_posts').delete().eq('id', id); loadData(); } }
 async function updateNote(postId, val) { await sb.from('threads_posts').update({ user_notes: val }).eq('id', postId); }
 async function addKeyword() { const kw = document.getElementById('newKw').value.trim(); if(kw) await sb.from('monitored_keywords').insert([{ keyword: kw }]); loadData(); }
 async function toggleKw(kw, active) { await sb.from('monitored_keywords').update({ is_active: active }).eq('keyword', kw); loadData(); }
@@ -221,7 +220,7 @@ async function toggleKw(kw, active) { await sb.from('monitored_keywords').update
 async function analyzePost(postId, provider) {
   const box = document.getElementById(`diag-${postId}`);
   box.classList.add('analyzing');
-  box.innerHTML = `<div style="color:var(--accent)">⏳ 哨兵分析中...</div>`;
+  box.innerHTML = `<div style="color:var(--accent)">⏳ 哨兵正在診斷，請稍後...</div>`;
   const { data } = await sb.from('scrape_tasks').insert([{ task_type: 'ai_analyze', target_post_id: postId, target_keyword: provider }]).select().single();
   const ch = sb.channel('ai-'+data.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${data.id}` }, (p) => {
     if (p.new.status === 'completed') { loadData(); sb.removeChannel(ch); }
