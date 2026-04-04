@@ -17,7 +17,7 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 <style>
   :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; --bright:#ffffff; --claude:#d97757; --gemini:#4b8bf5; }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
-  body { background: var(--bg); color: var(--text); overflow-x: hidden; }
+  body { background: var(--bg); color: var(--text); }
   .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 32px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
   .drawer { position: fixed; right: -400px; top: 0; width: 400px; height: 100%; background: var(--card); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.5); transition: 0.3s; z-index: 100; padding: 30px; overflow-y: auto; }
   .drawer.open { right: 0; }
@@ -34,18 +34,12 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
   .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 12px; }
   .stats-row { margin-top: 15px; display: flex; gap: 15px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
   .stats-val { color: var(--accent); font-weight: bold; }
-  .diagnosis-box { flex: 1; min-height: 120px; max-height: 250px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-size: 14px; line-height: 1.6; margin-top: 15px; position: relative; overflow-y: auto; color: #bbb; }
-  .diagnosis-box.analyzing { animation: pulse 2s infinite; border-color: var(--accent); }
-  @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-  .note-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 10px; font-size: 13px; resize: none; }
+  .diagnosis-box { flex: 1; min-height: 120px; max-height: 250px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-size: 14px; line-height: 1.6; margin-top: 15px; overflow-y: auto; color: #bbb; }
   .btn-group { display: flex; gap: 10px; margin-top: 15px; }
   .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; border: 1px solid var(--border); }
-  .btn-claude { background: var(--claude); color: white; border: none; flex: 1; }
-  .btn-gemini { background: var(--gemini); color: white; border: none; flex: 1; }
   .btn-primary { background: var(--accent); color: var(--bg); border: none; }
   .btn-delete { background: var(--red); color: white; border: none; }
   .kw-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-  .notice { padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -58,7 +52,7 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
   </div>
 </div>
 
-<div id="notice" class="notice"></div>
+<div id="notice" style="padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px;"></div>
 
 <div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
 <div class="drawer" id="drawer">
@@ -66,150 +60,82 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
     <h3>⚙️ 關鍵字戰情室</h3>
     <button class="btn" onclick="toggleDrawer(false)" style="padding:4px 8px; border:none; background:transparent;">✕</button>
   </div>
-  
   <div style="margin: 15px 0; display:flex; flex-direction:column; gap:10px;">
-    <input type="text" id="newKw" placeholder="輸入新關鍵字..." style="padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
+    <input type="text" id="newKw" placeholder="輸入關鍵字..." style="padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
     <div style="display:flex; gap:10px;">
       <button class="btn" onclick="addKeyword()" style="flex:1;">加入排程</button>
       <button class="btn" onclick="testKeyword()" style="flex:1; color:var(--accent); border-color:var(--accent);">🚀 72H 探測</button>
     </div>
   </div>
-  
-  <div id="radarBox" style="display:none; background:rgba(201,169,110,0.1); border:1px solid var(--accent); padding:15px; border-radius:8px; margin-bottom:15px;">
-    <h4 style="color:var(--accent); margin-bottom:15px; font-size:14px; text-align:center;">📡 [<span id="radarKw"></span>] 72H 戰略報告</h4>
+  <div id="radarBox" style="display:none; background:rgba(201,169,110,0.1); border:1px solid var(--accent); padding:15px; border-radius:8px;">
+    <h4 id="radarKw" style="color:var(--accent); text-align:center; margin-bottom:10px;"></h4>
     <div style="display:flex; justify-content:space-around; text-align:center;">
-      <div><div style="font-size:20px; font-weight:bold; color:#fff;" id="radarTotal">0</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">總聲量(篇)</div></div>
-      <div><div style="font-size:20px; font-weight:bold; color:#2ecc71;" id="radarViews">0</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">最高瀏覽</div></div>
-      <div><div style="font-size:20px; font-weight:bold; color:#e74c3c;" id="radarLikes">0</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">最高按讚</div></div>
+      <div><div id="radarTotal" style="font-size:20px; font-weight:bold;">0</div><div style="font-size:10px; color:var(--muted);">總聲量</div></div>
+      <div><div id="radarViews" style="font-size:20px; font-weight:bold; color:var(--green);">0</div><div style="font-size:10px; color:var(--muted);">最高瀏覽</div></div>
+      <div><div id="radarLikes" style="font-size:20px; font-weight:bold; color:var(--red);">0</div><div style="font-size:10px; color:var(--muted);">最高按讚</div></div>
     </div>
   </div>
-
-  <h4 style="margin-top:25px; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--border);">📋 監控名單</h4>
+  <h4 style="margin-top:20px;">📋 監控名單</h4>
   <div id="kwList"></div>
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('market')" id="btn-market">📊 市場爆文情報</button>
-  <button class="tab-btn" onclick="switchTab('myposts')" id="btn-myposts">👤 我的專屬覆盤</button>
+  <button class="tab-btn active" onclick="switchTab('market')">📊 市場爆文情報</button>
 </div>
-
 <div id="panel-market" class="panel active"><div id="marketPosts"></div></div>
-<div id="panel-myposts" class="panel"><div id="myPosts"></div></div>
 
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-let radarMonitorTimer = null;
+let monitorTimer = null;
 
 function showMsg(msg) { const n = document.getElementById('notice'); n.innerText = msg; n.style.display = 'block'; setTimeout(()=>n.style.display='none', 5000); }
-function switchTab(tab) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`panel-${tab}`).classList.add('active');
-  document.getElementById(`btn-${tab}`).classList.add('active');
-}
 function toggleDrawer(open) { 
-    document.getElementById('drawer').classList.toggle('open', open); 
-    document.getElementById('overlay').classList.toggle('open', open); 
-    if (!open) stopRadarMonitor();
+  document.getElementById('drawer').classList.toggle('open', open); 
+  document.getElementById('overlay').classList.toggle('open', open); 
+  if(!open && monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
 }
-function stopRadarMonitor() { if (radarMonitorTimer) { clearInterval(radarMonitorTimer); radarMonitorTimer = null; } }
-function esc(str) { return (str||'').replace(/</g,'&lt;'); }
-
-function nF(num) {
-  if (num === undefined || num === null || num === '') return 0;
-  let val = parseFloat(String(num).replace(/,/g, '')); 
-  if (isNaN(val)) return num; 
-  if (val >= 10000) return (val / 10000).toFixed(1) + ' 萬';
-  return val.toLocaleString();
+function nF(n) { 
+  if(!n) return 0; n = parseFloat(String(n).replace(/,/g,'')); 
+  return n >= 10000 ? (n/10000).toFixed(1)+' 萬' : n.toLocaleString(); 
 }
 
 async function loadData() {
   const { data: kws } = await sb.from('monitored_keywords').select('*').order('added_at', { ascending: false });
-  document.getElementById('kwList').innerHTML = (kws||[]).map(k => `
-    <div class="kw-row">
-      <span style="font-size:14px;">${esc(k.keyword)}</span>
-      <div style="display:flex; gap:5px;">
-        <button class="btn" style="font-size:11px; padding:4px 8px;" onclick="toggleKw('${k.keyword}', ${!k.is_active})">${k.is_active?'暫停':'啟用'}</button>
-        <button class="btn btn-delete" style="font-size:11px; padding:4px 8px;" onclick="delKeyword('${k.id}')">刪除</button>
-      </div>
-    </div>`).join('');
-
-  const { data: posts } = await sb.from('threads_posts').select('*').eq('is_test', false).order('scraped_at', { ascending: false }).limit(100);
-  if (!posts) return;
-
-  const uniquePostsMap = new Map();
-  posts.forEach(p => { const finger = `${p.username}_${p.post_text.trim()}`; if (!uniquePostsMap.has(finger)) uniquePostsMap.set(finger, p); });
-  const finalPosts = Array.from(uniquePostsMap.values()).sort((a, b) => (b.views||0) - (a.views||0));
-
-  const renderPost = (p) => `
+  document.getElementById('kwList').innerHTML = (kws||[]).map(k => `<div class="kw-row"><span>${k.keyword}</span></div>`).join('');
+  const { data: posts } = await sb.from('threads_posts').select('*').order('scraped_at', { ascending: false }).limit(50);
+  document.getElementById('marketPosts').innerHTML = (posts||[]).map(p => `
     <div class="post-card">
       <div class="post-left">
-        <div class="meta"><strong style="color:var(--accent)">@${esc(p.username)}</strong> <span>${p.post_time?.split('T')[0]||''}</span></div>
-        <p style="white-space:pre-wrap; font-size:14px; line-height:1.7;">${esc(p.post_text)}</p>
-        <div class="stats-row"><span>👀 <span class="stats-val">${nF(p.views)}</span></span> <span>❤️ <span class="stats-val">${nF(p.likes)}</span></span></div>
+        <div class="meta"><strong style="color:var(--accent)">@${p.username}</strong> <span>${p.post_time?.split('T')[0]||''}</span></div>
+        <p style="font-size:14px;">${p.post_text}</p>
+        <div class="stats-row"><span>👀 ${nF(p.views)}</span> <span>❤️ ${nF(p.likes)}</span></div>
       </div>
-      <div class="post-right">
-        <div class="diagnosis-box" id="diag-${p.id}">${p.ai_diagnosis ? `<strong>[${p.diagnosis_provider}]</strong><br>${p.ai_diagnosis.replace(/\n/g, '<br>')}` : '尚未分析'}</div>
-        <div class="btn-group">
-          <button class="btn btn-claude" onclick="analyzePost('${p.id}', 'Claude')">✨ Claude</button>
-          <button class="btn btn-delete" onclick="delPost('${p.id}')">🗑️ 刪除</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById('marketPosts').innerHTML = finalPosts.filter(p => p.keyword !== '__my_posts__').map(renderPost).join('');
+    </div>`).join('');
 }
 
-// 🚀 [自動回收機制] 監控統計表
 async function monitorStats(kw) {
     const { data } = await sb.from('keyword_stats').select('*').eq('keyword', kw).maybeSingle();
     if (data) {
-        document.getElementById('radarTotal').innerText = data.post_count || 0;
-        document.getElementById('radarViews').innerText = nF(data.max_view || 0);
-        document.getElementById('radarLikes').innerText = nF(data.max_like || 0);
-        
-        const lastUpdate = new Date(data.last_scanned_at).getTime();
-        if (Date.now() - lastUpdate < 45000) { // 45秒內更新過則停止
-            console.log("✅ 情報已回收");
-            stopRadarMonitor();
+        document.getElementById('radarTotal').innerText = data.post_count;
+        document.getElementById('radarViews').innerText = nF(data.max_view);
+        document.getElementById('radarLikes').innerText = nF(data.max_like);
+        if (Date.now() - new Date(data.last_scanned_at).getTime() < 60000) {
+            showMsg('✅ 情報已自動回收！');
+            clearInterval(monitorTimer);
         }
     }
 }
 
 async function testKeyword() {
-  const kw = document.getElementById('newKw').value.trim(); if(!kw) return alert('請輸入關鍵字');
-  document.getElementById('radarKw').innerText = esc(kw);
+  const kw = document.getElementById('newKw').value.trim(); if(!kw) return;
+  document.getElementById('radarKw').innerText = `📡 [${kw}] 探測中...`;
   document.getElementById('radarTotal').innerText = '⏳';
   document.getElementById('radarViews').innerText = '⏳';
   document.getElementById('radarLikes').innerText = '⏳';
   document.getElementById('radarBox').style.display = 'block';
   
-  triggerTask('test_search', kw);
-  stopRadarMonitor();
-  radarMonitorTimer = setInterval(() => monitorStats(kw), 3000);
-}
-
-async function triggerTask(type, kw = null) {
-  showMsg('⏳ 派送指令...');
-  const { data: task, error } = await sb.from('scrape_tasks').insert([{ task_type: type, target_keyword: kw }]).select().single();
-  if (error) return;
-  const channel = sb.channel('task-'+task.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${task.id}` }, async (p) => {
-    if (p.new.status === 'completed') { showMsg('✅ 任務完成！'); await loadData(); sb.removeChannel(channel); }
-  }).subscribe();
-}
-
-async function addKeyword() { const kw = document.getElementById('newKw').value.trim(); if(kw) await sb.from('monitored_keywords').insert([{ keyword: kw }]); loadData(); }
-async function toggleKw(kw, active) { await sb.from('monitored_keywords').update({ is_active: active }).eq('keyword', kw); loadData(); }
-async function delKeyword(id) { if(confirm('刪除？')) { await sb.from('monitored_keywords').delete().eq('id', id); loadData(); } }
-async function delPost(id) { await sb.from('threads_posts').delete().eq('id', id); loadData(); }
-async function updateNote(postId, val) { await sb.from('threads_posts').update({ user_notes: val }).eq('id', postId); }
-
-async function analyzePost(postId, provider) {
-  const box = document.getElementById(`diag-${postId}`);
-  box.classList.add('analyzing');
-  const { data } = await sb.from('scrape_tasks').insert([{ task_type: 'ai_analyze', target_post_id: postId, target_keyword: provider }]).select().single();
-  const ch = sb.channel('ai-'+data.id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scrape_tasks', filter: `id=eq.${data.id}` }, (p) => {
-    if (p.new.status === 'completed') { box.classList.remove('analyzing'); loadData(); sb.removeChannel(ch); }
-  }).subscribe();
+  const { data: task } = await sb.from('scrape_tasks').insert([{ task_type: 'test_search', target_keyword: kw }]).select().single();
+  monitorTimer = setInterval(() => monitorStats(kw), 3000);
 }
 
 loadData();
