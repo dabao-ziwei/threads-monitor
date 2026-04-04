@@ -8,38 +8,28 @@
 <script>
 const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
-(async function checkAuth() { 
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); 
-  const { data: { session } } = await sb.auth.getSession(); 
-  if (!session && !sessionStorage.getItem('dabao_auth')) window.location.href = 'index.html'; 
-})();
 </script>
 <style>
-  :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; --bright:#ffffff; --claude:#d97757; --gemini:#4b8bf5; }
+  :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; --claude:#d97757; }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
-  body { background: var(--bg); color: var(--text); }
+  body { background: var(--bg); color: var(--text); padding: 0; }
   .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 32px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
-  .drawer { position: fixed; right: -400px; top: 0; width: 400px; height: 100%; background: var(--card); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.5); transition: 0.3s; z-index: 100; padding: 30px; overflow-y: auto; }
+  .drawer { position: fixed; right: -400px; top: 0; width: 400px; height: 100%; background: var(--card); border-left: 1px solid var(--border); transition: 0.3s; z-index: 100; padding: 30px; overflow-y: auto; }
   .drawer.open { right: 0; }
   .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 90; }
   .drawer-overlay.open { display: block; }
-  .tabs { display: flex; gap: 10px; margin: 20px 32px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+  .tabs { margin: 20px 32px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
   .tab-btn { background: transparent; border: none; color: var(--muted); font-size: 16px; font-weight: bold; cursor: pointer; padding: 10px 20px; border-radius: 8px; }
   .tab-btn.active { color: var(--bg); background: var(--accent); }
-  .panel { display: none; padding: 0 32px; }
-  .panel.active { display: block; }
+  .panel { padding: 0 32px; }
   .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 25px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
-  .post-left { padding: 24px; border-right: 1px solid var(--border); }
-  .post-right { padding: 24px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; }
-  .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .post-left, .post-right { padding: 24px; }
   .stats-row { margin-top: 15px; display: flex; gap: 15px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
   .stats-val { color: var(--accent); font-weight: bold; }
-  .diagnosis-box { flex: 1; min-height: 120px; max-height: 250px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-size: 14px; line-height: 1.6; margin-top: 15px; overflow-y: auto; color: #bbb; }
-  .btn-group { display: flex; gap: 10px; margin-top: 15px; }
-  .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; border: 1px solid var(--border); }
+  .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; border: 1px solid var(--border); }
   .btn-primary { background: var(--accent); color: var(--bg); border: none; }
-  .btn-delete { background: var(--red); color: white; border: none; }
-  .kw-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .kw-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .notice { padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -52,13 +42,12 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
   </div>
 </div>
 
-<div id="notice" style="padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px;"></div>
-
+<div id="notice" class="notice"></div>
 <div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
 <div class="drawer" id="drawer">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
     <h3>⚙️ 關鍵字戰情室</h3>
-    <button class="btn" onclick="toggleDrawer(false)" style="padding:4px 8px; border:none; background:transparent;">✕</button>
+    <button onclick="toggleDrawer(false)" style="border:none; background:transparent; color:white; cursor:pointer;">✕</button>
   </div>
   <div style="margin: 15px 0; display:flex; flex-direction:column; gap:10px;">
     <input type="text" id="newKw" placeholder="輸入關鍵字..." style="padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
@@ -68,21 +57,19 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
     </div>
   </div>
   <div id="radarBox" style="display:none; background:rgba(201,169,110,0.1); border:1px solid var(--accent); padding:15px; border-radius:8px;">
-    <h4 id="radarKw" style="color:var(--accent); text-align:center; margin-bottom:10px;"></h4>
+    <h4 id="radarKw" style="color:var(--accent); text-align:center; margin-bottom:10px; font-size:14px;"></h4>
     <div style="display:flex; justify-content:space-around; text-align:center;">
       <div><div id="radarTotal" style="font-size:20px; font-weight:bold;">0</div><div style="font-size:10px; color:var(--muted);">總聲量</div></div>
       <div><div id="radarViews" style="font-size:20px; font-weight:bold; color:var(--green);">0</div><div style="font-size:10px; color:var(--muted);">最高瀏覽</div></div>
       <div><div id="radarLikes" style="font-size:20px; font-weight:bold; color:var(--red);">0</div><div style="font-size:10px; color:var(--muted);">最高按讚</div></div>
     </div>
   </div>
-  <h4 style="margin-top:20px;">📋 監控名單</h4>
+  <h4 style="margin-top:20px; padding-bottom:10px; border-bottom:1px solid var(--border);">📋 監控名單</h4>
   <div id="kwList"></div>
 </div>
 
-<div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('market')">📊 市場爆文情報</button>
-</div>
-<div id="panel-market" class="panel active"><div id="marketPosts"></div></div>
+<div class="tabs"><button class="tab-btn active">📊 市場爆文情報</button></div>
+<div id="panel-market" class="panel"><div id="marketPosts"></div></div>
 
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -106,8 +93,8 @@ async function loadData() {
   document.getElementById('marketPosts').innerHTML = (posts||[]).map(p => `
     <div class="post-card">
       <div class="post-left">
-        <div class="meta"><strong style="color:var(--accent)">@${p.username}</strong> <span>${p.post_time?.split('T')[0]||''}</span></div>
-        <p style="font-size:14px;">${p.post_text}</p>
+        <div class="meta"><strong style="color:var(--accent)">@${p.username}</strong></div>
+        <p style="font-size:14px; line-height:1.6;">${p.post_text}</p>
         <div class="stats-row"><span>👀 ${nF(p.views)}</span> <span>❤️ ${nF(p.likes)}</span></div>
       </div>
     </div>`).join('');
@@ -116,11 +103,12 @@ async function loadData() {
 async function monitorStats(kw) {
     const { data } = await sb.from('keyword_stats').select('*').eq('keyword', kw).maybeSingle();
     if (data) {
-        document.getElementById('radarTotal').innerText = data.post_count;
+        document.getElementById('radarTotal').innerText = data.post_count || 0;
         document.getElementById('radarViews').innerText = nF(data.max_view);
         document.getElementById('radarLikes').innerText = nF(data.max_like);
-        if (Date.now() - new Date(data.last_scanned_at).getTime() < 60000) {
-            showMsg('✅ 情報已自動回收！');
+        const lastUpdate = new Date(data.last_scanned_at).getTime();
+        if (Date.now() - lastUpdate < 45000) {
+            showMsg('✅ 情報已由哨兵自動回傳！');
             clearInterval(monitorTimer);
         }
     }
@@ -134,7 +122,8 @@ async function testKeyword() {
   document.getElementById('radarLikes').innerText = '⏳';
   document.getElementById('radarBox').style.display = 'block';
   
-  const { data: task } = await sb.from('scrape_tasks').insert([{ task_type: 'test_search', target_keyword: kw }]).select().single();
+  await sb.from('scrape_tasks').insert([{ task_type: 'test_search', target_keyword: kw }]);
+  if(monitorTimer) clearInterval(monitorTimer);
   monitorTimer = setInterval(() => monitorStats(kw), 3000);
 }
 
