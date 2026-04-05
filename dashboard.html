@@ -45,7 +45,7 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 <div class="header">
   <h2>Threads 作戰指揮中心</h2>
   <div style="display: flex; gap: 10px;">
-    <button class="btn btn-sync" onclick="triggerSystemUpdate()">🔄 系統同步</button>
+    <button class="btn btn-sync" onclick="triggerSystemUpdate()">🔄 同步windows</button>
     <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
     <button class="btn" style="background:var(--card2); color:white;" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
   </div>
@@ -144,7 +144,7 @@ async function testKeyword() {
   monitorTimer = setInterval(() => monitorStats(kw), 3000);
 }
 
-// 新增：系統同步遙控功能
+// 系統同步遙控功能
 async function triggerSystemUpdate() {
   if(!confirm('確定要指示本機哨兵從 GitHub 進行系統更新嗎？\n(這將重新啟動本機執行緒)')) return;
   showMsg('⏳ 系統更新指令派發中...');
