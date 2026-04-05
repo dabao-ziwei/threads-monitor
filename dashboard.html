@@ -34,6 +34,8 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
   .btn-group { display: flex; gap: 10px; }
   .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; border: 1px solid var(--border); }
   .btn-primary { background: var(--accent); color: var(--bg); border: none; }
+  .btn-sync { background: #6366f1; color: white; border: none; transition: 0.2s; }
+  .btn-sync:hover { background: #4f46e5; }
   .btn-delete { background: var(--red); color: white; border: none; }
   .notice { padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px; }
 </style>
@@ -43,6 +45,7 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 <div class="header">
   <h2>Threads 作戰指揮中心</h2>
   <div style="display: flex; gap: 10px;">
+    <button class="btn btn-sync" onclick="triggerSystemUpdate()">🔄 系統同步</button>
     <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
     <button class="btn" style="background:var(--card2); color:white;" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
   </div>
@@ -97,7 +100,7 @@ function nF(n) {
 
 async function loadData() {
   const { data: kws } = await sb.from('monitored_keywords').select('*').order('added_at', { ascending: false });
-  document.getElementById('kwList').innerHTML = (kws||[]).map(k => `<div class="kw-row"><span>${k.keyword}</span></div>`).join('');
+  document.getElementById('kwList').innerHTML = (kws||[]).map(k => `<div class="kw-row" style="padding:8px 0; border-bottom:1px solid var(--border);"><span>${k.keyword}</span></div>`).join('');
   const { data: posts } = await sb.from('threads_posts').select('*').order('scraped_at', { ascending: false }).limit(50);
   
   document.getElementById('marketPosts').innerHTML = (posts||[]).map(p => {
@@ -113,7 +116,7 @@ async function loadData() {
         <textarea class="note-input" placeholder="筆記..." onblur="updateNote('${p.id}', this.value)">${p.user_notes||''}</textarea>
         <div class="diagnosis-box" id="diag-${p.id}">${p.ai_diagnosis || '尚未分析'}</div>
         <div class="btn-group">
-          <button class="btn" style="background:var(--claude); color:white; border:none; flex:1;" onclick="analyzePost('${p.id}', 'Claude')">Claude</button>
+          <button class="btn" style="background:var(--claude); color:white; border:none; flex:1;" onclick="analyzePost('${p.id}', 'Claude')">Claude 診斷</button>
           <button class="btn btn-delete" onclick="delPost('${p.id}')">🗑️</button>
         </div>
       </div>
@@ -139,6 +142,14 @@ async function testKeyword() {
   await sb.from('scrape_tasks').insert([{ task_type: 'test_search', target_keyword: kw }]);
   if(monitorTimer) clearInterval(monitorTimer);
   monitorTimer = setInterval(() => monitorStats(kw), 3000);
+}
+
+// 新增：系統同步遙控功能
+async function triggerSystemUpdate() {
+  if(!confirm('確定要指示本機哨兵從 GitHub 進行系統更新嗎？\n(這將重新啟動本機執行緒)')) return;
+  showMsg('⏳ 系統更新指令派發中...');
+  await sb.from('scrape_tasks').insert([{ task_type: 'system_update' }]);
+  setTimeout(() => showMsg('✅ 指令已送達，哨兵執行官正在同步雲端程式碼與重啟！'), 1500);
 }
 
 async function triggerTask(type) {
