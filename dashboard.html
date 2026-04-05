@@ -3,172 +3,217 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Threads 作戰指揮中心</title>
+<title>寶曜文化｜Threads 作戰指揮中心</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// 您專屬的連線資訊 (已根據您提供的版本保留)
 const SUPABASE_URL = 'https://uwktzlxlduqyjyoolgrs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 </script>
 <style>
-  :root { --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; --border:#2e2e40; --claude:#d97757; --gemini:#4b8bf5; }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+  :root { 
+    --bg:#0f0f13; --card:#1a1a24; --card2:#22222f; --accent:#c9a96e; 
+    --text:#e8e4dc; --muted:#888; --green:#2ecc71; --red:#e74c3c; 
+    --border:#2e2e40; --claude:#d97757; --gemini:#4b8bf5; 
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, "Microsoft JhengHei", sans-serif; }
   body { background: var(--bg); color: var(--text); overflow-x: hidden; }
+  
+  /* Header & Budget Meter */
   .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 32px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+  .budget-meter { display: flex; align-items: center; gap: 15px; background: rgba(0,0,0,0.3); padding: 5px 15px; border-radius: 50px; border: 1px solid var(--border); cursor: pointer; }
+  .budget-bar { width: 100px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+  .budget-fill { height: 100%; background: var(--green); transition: 0.3s; }
+  .budget-text { font-size: 12px; font-weight: bold; }
+
+  /* Tabs System */
+  .tabs { display: flex; gap: 10px; margin: 20px 32px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+  .tab-btn { background: transparent; border: none; color: var(--muted); font-size: 16px; font-weight: bold; cursor: pointer; padding: 10px 20px; border-radius: 8px; transition: 0.2s; }
+  .tab-btn.active { color: var(--bg); background: var(--accent); }
+
+  /* Lab (Mission Control) UI */
+  .lab-entry { background: var(--card); border: 2px dashed var(--accent); border-radius: 16px; padding: 40px; text-align: center; margin-bottom: 30px; }
+  .url-input { width: 60%; padding: 15px 20px; background: var(--bg); border: 1px solid var(--border); color: white; border-radius: 8px; font-size: 15px; margin-right: 10px; outline: none; }
+  .url-input:focus { border-color: var(--accent); }
+  
+  /* Panels */
+  .panel { display: none; padding: 0 32px; animation: fadeIn 0.3s ease-in; }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Cards */
+  .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 25px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; min-height: 320px; }
+  .post-left { padding: 24px; border-right: 1px solid var(--border); }
+  .post-right { padding: 24px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 10px; }
+  
+  .btn { padding: 10px 22px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; border: 1px solid var(--border); transition: 0.2s; }
+  .btn-primary { background: var(--accent); color: var(--bg); border: none; }
+  .btn-sync { background: #6366f1; color: white; border: none; }
+  .notice { position: fixed; bottom: 20px; right: 20px; padding: 15px 25px; background: var(--accent); color: var(--bg); border-radius: 8px; font-weight: bold; z-index: 1000; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  
+  /* Drawer (Settings) */
   .drawer { position: fixed; right: -400px; top: 0; width: 400px; height: 100%; background: var(--card); border-left: 1px solid var(--border); transition: 0.3s; z-index: 100; padding: 30px; overflow-y: auto; }
   .drawer.open { right: 0; }
   .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 90; }
   .drawer-overlay.open { display: block; }
-  .tabs { display: flex; gap: 10px; margin: 20px 32px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-  .tab-btn { background: transparent; border: none; color: var(--muted); font-size: 16px; font-weight: bold; cursor: pointer; padding: 10px 20px; border-radius: 8px; }
-  .tab-btn.active { color: var(--bg); background: var(--accent); }
-  .panel { display: none; padding: 0 32px; }
-  .panel.active { display: block; }
-  .post-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 25px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; min-height: 320px; }
-  .post-left { padding: 24px; border-right: 1px solid var(--border); position: relative; }
-  .post-right { padding: 24px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 10px; }
-  .meta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-bottom: 12px; align-items: center; }
-  .stats-row { margin-top: 15px; display: flex; gap: 15px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
-  .stats-val { color: var(--accent); font-weight: bold; }
-  .diagnosis-box { flex: 1; min-height: 140px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-size: 14px; line-height: 1.6; color: #bbb; overflow-y: auto; }
-  .note-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 10px; font-size: 13px; resize: none; }
-  .btn-group { display: flex; gap: 10px; }
-  .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; border: 1px solid var(--border); }
-  .btn-primary { background: var(--accent); color: var(--bg); border: none; }
-  .btn-sync { background: #6366f1; color: white; border: none; transition: 0.2s; }
-  .btn-sync:hover { background: #4f46e5; }
-  .btn-delete { background: var(--red); color: white; border: none; }
-  .notice { padding: 15px; background: var(--card2); margin: 10px 32px; border-left: 4px solid var(--accent); display: none; border-radius: 8px; }
 </style>
 </head>
 <body>
 
+<div id="notice" class="notice"></div>
+
 <div class="header">
-  <h2>Threads 作戰指揮中心</h2>
+  <h2>寶曜文化 指揮中心</h2>
+  
+  <div class="budget-meter" title="點擊設定每日預算上限" onclick="toggleDrawer(true)">
+    <span class="budget-text">API 耗能</span>
+    <div class="budget-bar">
+      <div id="budgetFill" class="budget-fill" style="width: 0%"></div>
+    </div>
+    <span id="budgetText" class="budget-text" style="color:var(--accent)">$0.00 / --</span>
+  </div>
+
   <div style="display: flex; gap: 10px;">
-    <button class="btn btn-sync" onclick="triggerSystemUpdate()">🔄 同步windows</button>
-    <button class="btn btn-primary" onclick="triggerTask('full')">⚡ 全域抓取</button>
-    <button class="btn" style="background:var(--card2); color:white;" onclick="toggleDrawer(true)">⚙️ 關鍵字管理</button>
+    <button class="btn btn-sync" onclick="triggerSystemUpdate()">🔄 同步本機</button>
+    <button class="btn" style="background:var(--card2); color:white;" onclick="toggleDrawer(true)">⚙️ 設定</button>
   </div>
 </div>
 
-<div id="notice" class="notice"></div>
+<div class="tabs">
+  <button id="btn-market" class="tab-btn active" onclick="switchTab('market')">📊 市場爆文情報</button>
+  <button id="btn-lab" class="tab-btn" onclick="switchTab('lab')">🧪 貼文實驗室</button>
+</div>
+
+<div id="panel-market" class="panel active">
+  <div id="marketPosts"></div>
+</div>
+
+<div id="panel-lab" class="panel">
+  <div class="lab-entry">
+    <h3 style="margin-bottom: 10px; color: var(--accent);">🔍 投放偵查網址</h3>
+    <p style="color: var(--muted); font-size: 14px; margin-bottom: 25px;">在此貼上 Threads 貼文網址，哨兵將自動抽樣 10% 留言進行基因拆解。</p>
+    <div style="display:flex; justify-content:center; align-items:center;">
+      <input type="text" id="targetUrl" class="url-input" placeholder="https://www.threads.net/@user/post/...">
+      <button class="btn btn-primary" onclick="injectTask()">啟動任務</button>
+    </div>
+  </div>
+  
+  <div id="labTasksList" style="margin-top: 20px;">
+    </div>
+</div>
+
 <div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
 <div class="drawer" id="drawer">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-    <h3>⚙️ 關鍵字戰情室</h3>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+    <h3>⚙️ 系統參數設定</h3>
     <button onclick="toggleDrawer(false)" style="border:none; background:transparent; color:white; cursor:pointer; font-size:20px;">✕</button>
   </div>
-  <div style="margin: 15px 0; display:flex; flex-direction:column; gap:10px;">
-    <input type="text" id="newKw" placeholder="新關鍵字..." style="padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px;">
-    <div style="display:flex; gap:10px;">
-      <button class="btn" onclick="addKeyword()" style="flex:1;">加入排程</button>
-      <button class="btn" onclick="testKeyword()" style="flex:1; color:var(--accent); border-color:var(--accent);">🚀 72H 探測</button>
+  
+  <div style="margin-bottom: 30px; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--border);">
+    <label style="font-size: 13px; color: var(--muted);">每日預算上限 (USD)</label>
+    <div style="display:flex; gap:10px; margin-top:10px;">
+      <input type="number" id="budgetLimitInput" step="0.5" style="flex:1; padding:10px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:6px; outline:none;">
+      <button class="btn btn-primary" onclick="updateBudgetLimit()">更新</button>
     </div>
+    <p style="font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5;">超過額度後，系統將自動攔截所有的 AI 分析請求，直到額度調高或隔日重置。</p>
   </div>
-  <div id="radarBox" style="display:none; background:rgba(201,169,110,0.1); border:1px solid var(--accent); padding:15px; border-radius:8px;">
-    <h4 id="radarKw" style="color:var(--accent); text-align:center; margin-bottom:10px;"></h4>
-    <div style="display:flex; justify-content:space-around; text-align:center;">
-      <div><div id="radarTotal" style="font-size:20px; font-weight:bold;">0</div><div style="font-size:10px; color:var(--muted);">總聲量</div></div>
-      <div><div id="radarViews" style="font-size:20px; font-weight:bold; color:var(--green);">0</div><div style="font-size:10px; color:var(--muted);">最高瀏覽</div></div>
-      <div><div id="radarLikes" style="font-size:20px; font-weight:bold; color:var(--red);">0</div><div style="font-size:10px; color:var(--muted);">最高按讚</div></div>
-    </div>
-  </div>
-  <h4 style="margin-top:20px;">📋 監控名單</h4>
-  <div id="kwList"></div>
-</div>
 
-<div class="tabs"><button class="tab-btn active">📊 市場爆文情報</button></div>
-<div id="panel-market" class="panel active"><div id="marketPosts"></div></div>
+  <h4 style="margin-bottom: 10px;">📋 關鍵字監控名單</h4>
+  <div id="kwList" style="border-top: 1px solid var(--border); padding-top:10px;"></div>
+</div>
 
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-let monitorTimer = null;
 
-function showMsg(msg) { const n = document.getElementById('notice'); n.innerText = msg; n.style.display = 'block'; setTimeout(()=>n.style.display='none', 5000); }
+function showMsg(msg) { 
+  const n = document.getElementById('notice'); 
+  n.innerText = msg; n.style.display = 'block'; 
+  setTimeout(()=>n.style.display='none', 4000); 
+}
+
 function toggleDrawer(open) { 
   document.getElementById('drawer').classList.toggle('open', open); 
   document.getElementById('overlay').classList.toggle('open', open); 
-  if(!open && monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
+  if(open) refreshBudget();
 }
 
-function nF(n) { 
-    if(n === undefined || n === null || n === '') return '--';
-    let val = parseFloat(String(n).replace(/,/g, ''));
-    if(val === 0) return '0';
-    return val >= 10000 ? (val/10000).toFixed(1) + ' 萬' : val.toLocaleString();
+function switchTab(tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`panel-${tab}`).classList.add('active');
+  document.getElementById(`btn-${tab}`).classList.add('active');
+  if(tab === 'lab') loadLabTasks();
+  if(tab === 'market') loadMarketPosts();
 }
 
-async function loadData() {
-  const { data: kws } = await sb.from('monitored_keywords').select('*').order('added_at', { ascending: false });
-  document.getElementById('kwList').innerHTML = (kws||[]).map(k => `<div class="kw-row" style="padding:8px 0; border-bottom:1px solid var(--border);"><span>${k.keyword}</span></div>`).join('');
-  const { data: posts } = await sb.from('threads_posts').select('*').order('scraped_at', { ascending: false }).limit(50);
+// 預算更新邏輯
+async function refreshBudget() {
+  const { data: set } = await sb.from('system_settings').select('value_numeric').eq('key', 'daily_budget_limit').single();
+  const limit = set?.value_numeric || 5.0;
+  document.getElementById('budgetLimitInput').value = limit;
+
+  const today = new Date().toISOString().split('T')[0];
+  const { data: logs } = await sb.from('api_usage_logs').select('estimated_cost').gte('created_at', `${today}T00:00:00Z`);
+  const spent = logs ? logs.reduce((sum, l) => sum + (Number(l.estimated_cost)||0), 0) : 0;
+
+  const percent = Math.min((spent / limit) * 100, 100);
+  document.getElementById('budgetFill').style.width = `${percent}%`;
+  document.getElementById('budgetFill').style.background = percent > 90 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('budgetText').innerText = `$${spent.toFixed(2)} / $${limit.toFixed(0)}`;
+}
+
+async function updateBudgetLimit() {
+  const val = document.getElementById('budgetLimitInput').value;
+  await sb.from('system_settings').update({ value_numeric: parseFloat(val) }).eq('key', 'daily_budget_limit');
+  showMsg('✅ 預算額度已同步更新');
+  refreshBudget();
+}
+
+// 安全任務投放 (貼文實驗室)
+async function injectTask() {
+  const url = document.getElementById('targetUrl').value.trim();
+  if(!url.includes('threads.net')) return alert('這不是有效的 Threads 網址，請重新確認。');
   
-  document.getElementById('marketPosts').innerHTML = (posts||[]).map(p => {
-    const user = p.username.startsWith('@') ? p.username : '@' + p.username;
-    return `
-    <div class="post-card">
-      <div class="post-left">
-        <div class="meta"><strong style="color:var(--accent)">${user}</strong> <span>${p.post_time?.split('T')[0]||''}</span></div>
-        <p style="font-size:14px; line-height:1.6; color:#eee;">${p.post_text}</p>
-        <div class="stats-row"><span>👀 ${nF(p.views)}</span> <span>❤️ ${nF(p.likes)}</span> <span>💬 ${nF(p.comments)}</span></div>
+  showMsg('🚀 任務已寫入，本機哨兵即將啟動偵查...');
+  await sb.from('scrape_tasks').insert([{ 
+    task_type: 'analyze_viral', 
+    url: url,
+    status: 'pending'
+  }]);
+  
+  document.getElementById('targetUrl').value = '';
+  loadLabTasks();
+}
+
+async function loadLabTasks() {
+  const { data: tasks } = await sb.from('scrape_tasks')
+    .select('*')
+    .eq('task_type', 'analyze_viral')
+    .order('created_at', { ascending: false }).limit(10);
+  
+  document.getElementById('labTasksList').innerHTML = (tasks||[]).map(t => `
+    <div style="background:var(--card2); padding:18px; border-radius:12px; border: 1px solid var(--border); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="max-width:75%;">
+        <span style="color:var(--muted); font-size:11px;">任務時間：${new Date(t.created_at).toLocaleString()}</span><br>
+        <a href="${t.url}" target="_blank" style="color:var(--accent); font-size:13px; text-decoration:none;">🔗 ${t.url}</a>
       </div>
-      <div class="post-right">
-        <textarea class="note-input" placeholder="筆記..." onblur="updateNote('${p.id}', this.value)">${p.user_notes||''}</textarea>
-        <div class="diagnosis-box" id="diag-${p.id}">${p.ai_diagnosis || '尚未分析'}</div>
-        <div class="btn-group">
-          <button class="btn" style="background:var(--claude); color:white; border:none; flex:1;" onclick="analyzePost('${p.id}', 'Claude')">Claude 診斷</button>
-          <button class="btn btn-delete" onclick="delPost('${p.id}')">🗑️</button>
-        </div>
+      <div style="text-align:right;">
+        <span style="font-size:12px; font-weight:bold; color:${t.status === 'completed' ? 'var(--green)' : 'var(--accent)'}">${t.status.toUpperCase()}</span>
       </div>
-    </div>`;
-  }).join('');
+    </div>
+  `).join('');
 }
 
-async function monitorStats(kw) {
-    const { data } = await sb.from('keyword_stats').select('*').eq('keyword', kw).maybeSingle();
-    if (data) {
-        document.getElementById('radarTotal').innerText = data.post_count;
-        document.getElementById('radarViews').innerText = nF(data.max_view);
-        document.getElementById('radarLikes').innerText = nF(data.max_like);
-        if (Date.now() - new Date(data.last_scanned_at).getTime() < 45000) { showMsg('✅ 數據已自動更新！'); clearInterval(monitorTimer); }
-    }
-}
-
-async function testKeyword() {
-  const kw = document.getElementById('newKw').value.trim(); if(!kw) return alert('請輸入關鍵字');
-  document.getElementById('radarKw').innerText = `📡 [${kw}] 探測中...`;
-  document.getElementById('radarTotal').innerText = '⏳'; document.getElementById('radarViews').innerText = '⏳'; document.getElementById('radarLikes').innerText = '⏳';
-  document.getElementById('radarBox').style.display = 'block';
-  await sb.from('scrape_tasks').insert([{ task_type: 'test_search', target_keyword: kw }]);
-  if(monitorTimer) clearInterval(monitorTimer);
-  monitorTimer = setInterval(() => monitorStats(kw), 3000);
-}
-
-// 系統同步遙控功能
 async function triggerSystemUpdate() {
-  if(!confirm('確定要指示本機哨兵從 GitHub 進行系統更新嗎？\n(這將重新啟動本機執行緒)')) return;
-  showMsg('⏳ 系統更新指令派發中...');
-  await sb.from('scrape_tasks').insert([{ task_type: 'system_update' }]);
-  setTimeout(() => showMsg('✅ 指令已送達，哨兵執行官正在同步雲端程式碼與重啟！'), 1500);
+  if(!confirm('這將強制本機電腦同步 GitHub 並重啟，確定執行？')) return;
+  showMsg('⏳ 雲端同步指令已派發...');
+  await sb.from('scrape_tasks').insert([{ task_type: 'system_update', status: 'pending' }]);
 }
 
-async function triggerTask(type) {
-  showMsg('⏳ 派送全域指令...');
-  await sb.from('scrape_tasks').insert([{ task_type: type }]);
-  setTimeout(loadData, 5000);
-}
-
-async function delPost(id) { if(confirm('刪除貼文？')) { await sb.from('threads_posts').delete().eq('id', id); loadData(); } }
-async function updateNote(postId, val) { await sb.from('threads_posts').update({ user_notes: val }).eq('id', postId); }
-
-async function analyzePost(postId, provider) {
-  const box = document.getElementById(`diag-${postId}`);
-  box.innerHTML = `⏳ 分析中...`;
-  await sb.from('scrape_tasks').insert([{ task_type: 'ai_analyze', target_post_id: postId, target_keyword: provider }]);
-  setTimeout(loadData, 10000);
-}
-
-loadData();
+// 每 30 秒自動刷新預算油表
+refreshBudget();
+setInterval(refreshBudget, 30000);
+loadMarketPosts(); // 預設載入市場資料
 </script>
 </body>
 </html>
