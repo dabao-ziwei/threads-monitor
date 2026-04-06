@@ -197,7 +197,7 @@ function nF(n) {
 
 async function injectTask() {
   const url = document.getElementById('targetUrl').value.trim();
-  if(!url.includes('threads.net')) return alert('網址格式不正確');
+  if(!url.includes('threads.net') && !url.includes('threads.com')) return alert('網址格式不正確');
   await sb.from('scrape_tasks').insert([{ task_type: 'analyze_viral', url: url, status: 'pending' }]);
   document.getElementById('targetUrl').value = '';
   showMsg('🚀 偵查任務已啟動');
