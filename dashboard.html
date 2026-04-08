@@ -491,6 +491,72 @@ async function triggerSystemUpdate() {
   showMsg('⏳ 雲端同步指令已派發');
 }
 
+// ── 關鍵字管理 ──
+function renderKeywordCard(kw) {
+  const isMust = kw.type === 'must';
+  const isActive = kw.status === 'active';
+  const result = kw.last_result || {};
+  return `
+  <div style="background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <span style="font-size:15px; font-weight:600;">${kw.keyword}</span>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <span style="font-size:11px; padding:3px 8px; border-radius:20px; background:${isMust ? 'rgba(201,169,110,0.15)' : 'rgba(124,106,245,0.15)'}; color:${isMust ? 'var(--accent)' : '#b8b0ff'};">${isMust ? '必抓' : '試抓'}</span>
+        <button onclick="toggleKeyword('${kw.id}', '${kw.status}')" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; border:none; cursor:pointer; background:${isActive ? 'rgba(46,204,113,0.15)' : 'rgba(100,100,100,0.15)'}; color:${isActive ? 'var(--green)' : 'var(--muted)'};">${isActive ? '啟用中' : '已停用'}</button>
+      </div>
+    </div>
+    ${kw.last_scraped_at ? `<div style="font-size:11px; color:var(--muted); margin-bottom:8px;">上次抓取：${kw.last_scraped_at.split('T')[0]} | 共 ${kw.post_count || 0} 篇</div>` : ''}
+    ${result.max_likes ? `<div style="font-size:11px; color:var(--muted); margin-bottom:8px;">最高讚：${result.max_likes} | 最高留言：${result.max_comments || 0}</div>` : ''}
+    <div style="display:flex; gap:6px;">
+      <button class="btn btn-insight" onclick="triggerKeyword('${kw.keyword}')" style="font-size:12px; padding:6px 14px;">▶ 立即抓取</button>
+      <button class="btn" onclick="changeKwType('${kw.id}', '${isMust ? 'trial' : 'must'}')" style="font-size:12px; padding:6px 14px; background:var(--card); color:var(--text);">→ 移至${isMust ? '試抓' : '必抓'}</button>
+      <button class="btn btn-danger" onclick="deleteKeyword('${kw.id}')" style="font-size:12px; padding:6px 14px;">刪除</button>
+    </div>
+  </div>`;
+}
+async function loadKeywords() {
+  const { data } = await sb.from('keywords').select('*').order('created_at', { ascending: false });
+  const must = (data||[]).filter(k => k.type === 'must');
+  const trial = (data||[]).filter(k => k.type === 'trial');
+  document.getElementById('mustKeywords').innerHTML = must.length ? must.map(renderKeywordCard).join('') : '<div style="color:var(--muted); font-size:13px; padding:20px 0;">尚無必抓關鍵字</div>';
+  document.getElementById('trialKeywords').innerHTML = trial.length ? trial.map(renderKeywordCard).join('') : '<div style="color:var(--muted); font-size:13px; padding:20px 0;">尚無試抓關鍵字</div>';
+  document.getElementById('nextSchedule').innerText = nextScheduleTime();
+}
+async function addKeyword() {
+  const kw = document.getElementById('newKw').value.trim();
+  const type = document.getElementById('kwType').value;
+  if (!kw) return alert('請輸入關鍵字');
+  await sb.from('keywords').insert([{ keyword: kw, type, status: 'active' }]);
+  document.getElementById('newKw').value = '';
+  showMsg('✅ 關鍵字已新增');
+  loadKeywords();
+}
+async function deleteKeyword(id) {
+  if (!confirm('確定刪除此關鍵字？')) return;
+  await sb.from('keywords').delete().eq('id', id);
+  showMsg('Ὕ1️ 已刪除');
+  loadKeywords();
+}
+async function toggleKeyword(id, current) {
+  await sb.from('keywords').update({ status: current === 'active' ? 'paused' : 'active' }).eq('id', id);
+  loadKeywords();
+}
+async function changeKwType(id, newType) {
+  await sb.from('keywords').update({ type: newType }).eq('id', id);
+  showMsg(`✅ 已移至${newType === 'must' ? '必抓' : '試抓'}`);
+  loadKeywords();
+}
+async function triggerKeyword(keyword) {
+  await sb.from('scrape_tasks').insert([{ task_type: 'search', target_keyword: keyword, status: 'pending' }]);
+  showMsg(`Ὠ0 已觸發抓取：${keyword}`);
+}
+function nextScheduleTime() {
+  const now = new Date();
+  const schedules = [6, 14, 20];
+  const nowHour = now.getHours() + now.getMinutes() / 60;
+  const next = schedules.find(h => h > nowHour) ?? schedules[0];
+  return `${String(next).padStart(2,'0')}:00`;
+}
 // ── 初始化 ──
 refreshBudget();
 setInterval(refreshBudget, 30000);
