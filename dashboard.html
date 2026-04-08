@@ -120,6 +120,7 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
   <button id="btn-market" class="tab-btn active" onclick="switchTab('market')">📊 市場爆文情報</button>
   <button id="btn-insight" class="tab-btn" onclick="switchTab('insight')">🔬 留言洞察</button>
   <button id="btn-lab" class="tab-btn" onclick="switchTab('lab')">✍️ 貼文實驗室</button>
+  <button id="btn-keywords" class="tab-btn" onclick="switchTab('keywords')">🔑 關鍵字管理</button>
 </div>
 
 <!-- ── 市場爆文情報 ── -->
@@ -175,7 +176,7 @@ const SUPABASE_KEY = 'sb_publishable_zd-hddZrWPl2uzLUJmouxw_U31_3PYa';
 </div>
 
 <!-- ── 設定抽屜 ── -->
-<div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
+<!-- ── 關鍵字管理 ── --><div id="panel-keywords" class="panel"><div style="background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; margin-bottom:20px;"><h3 style="color:var(--accent); margin-bottom:16px;">新增關鍵字</h3><div style="display:flex; gap:10px;"><input type="text" id="newKw" class="url-input" placeholder="輸入關鍵字，例如：命理、算命..." style="flex:1;"><select id="kwType" style="padding:13px 16px; background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:9px; font-size:14px; outline:none;"><option value="must">必抓</option><option value="trial">試抓</option></select><button class="btn btn-primary" onclick="addKeyword()">新增</button></div></div><div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;"><div><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;"><h3 style="color:var(--accent);">📌 必抓關鍵字</h3><span style="font-size:12px; color:var(--muted);">下次執行：<span id="nextSchedule"></span></span></div><div id="mustKeywords"></div></div><div><h3 style="color:var(--accent); margin-bottom:14px;">🔍 試抓關鍵字</h3><div id="trialKeywords"></div></div></div></div><div class="drawer-overlay" id="overlay" onclick="toggleDrawer(false)"></div>
 <div class="drawer" id="drawer">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:28px;">
     <h3 style="font-size:15px;">⚙️ 系統參數設定</h3>
@@ -217,6 +218,7 @@ function switchTab(tab) {
   if(tab === 'market') loadMarketPosts();
   if(tab === 'insight') loadInsights();
   if(tab === 'lab') loadLabKeywords();
+  if(tab === 'keywords') loadKeywords();
 }
 
 // ── 預算 ──
